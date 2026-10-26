@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Show a unified fuzzy-finder TUI for picking installed DNF, Flatpak, and mise packages to remove.
+# nier:requires-sudo=true
+
+set -euo pipefail
+
+format_package_row() {
+  local name=$1
+  local tag=$2
+  local kind=$3
+  local source_tag=$4
+  local pkg_id=$5
+  printf '%-42s [%-28s]\t%s\t%s\t%s\n' "${name}" "${tag}" "${kind}" "${source_tag}" "${pkg_id}"
+}
+
+emit_mise_installed_rows() {
+  local json=$1
+  local name
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '
+      to_entries[]
+      | select(.value | type == "array" and any(.installed == true))
+      | .key
+    ' <<<"${json}"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json, sys
+for name, versions in json.load(sys.stdin).items():
+    if any(isinstance(row, dict) and row.get("installed") for row in versions):
+        print(name)
+' <<<"${json}"
+  else
+    return 0
+  fi | while IFS= read -r name; do
+    [[ -n ${name} ]] || continue
+    format_package_row "${name}" "mise:global" "mise" "mise:global" "${name}"
+  done
+}
+
+list_installed_packages() {
+  if command -v dnf >/dev/null 2>&1; then
+    dnf repoquery -C --userinstalled --qf '%{name}|dnf:%{from_repo}\n' --quiet 2>/dev/null |
+      awk -F '|' 'NF >= 1 && $1 != "" {
+        tag = ($2 != "" && $2 != "dnf:" ? $2 : "dnf:installed")
+        printf "%-42s [%-28s]\t%s\t%s\t%s\n", $1, tag, "dnf", tag, $1
+      }' || true
+  fi
+
+  if command -v flatpak >/dev/null 2>&1; then
+    flatpak list --app --columns=application,name,origin 2>/dev/null |
+      awk -F '\t' 'NF >= 1 && $1 != "" {
+        display = ($2 != "" ? $2 " (" $1 ")" : $1)
+        origin = ($3 != "" ? $3 : "flathub")
+        tag = "flatpak:" origin
+        printf "%-42s [%-28s]\t%s\t%s\t%s\n", display, tag, "flatpak", origin, $1
+      }' || true
+  fi
+
+  if command -v mise >/dev/null 2>&1; then
+    local json
+    json=$(mise ls --json --global 2>/dev/null) || true
+    if [[ -n ${json} ]]; then
+      emit_mise_installed_rows "${json}" || true
+    fi
+  fi
+}
+
+fzf_args=(
+  --multi
+  --delimiter=$'\t'
+  --with-nth=1
+  --preview 'case {2} in
+    dnf) dnf -C info --installed {4} 2>/dev/null || rpm -qi {4} ;;
+    flatpak) flatpak info {4} 2>/dev/null ;;
+    mise) mise tool {4} 2>/dev/null ;;
+  esac'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:red,marker:red'
+)
+
+selections=$(list_installed_packages | fzf "${fzf_args[@]}") || exit 0
+[[ -n ${selections} ]] || exit 0
+
+dnf_pkgs=()
+flatpak_ids=()
+mise_pkgs=()
+
+while IFS=$'\t' read -r _display kind _source_tag pkg_id; do
+  [[ -n ${pkg_id} ]] || continue
+  if [[ ${kind} == "dnf" ]]; then
+    dnf_pkgs+=("${pkg_id}")
+  elif [[ ${kind} == "flatpak" ]]; then
+    flatpak_ids+=("${pkg_id}")
+  elif [[ ${kind} == "mise" ]]; then
+    mise_pkgs+=("${pkg_id}")
+  fi
+done <<<"${selections}"
+
+if (( ${#dnf_pkgs[@]} > 0 )); then
+  source nier-sudo-keepalive
+  sudo dnf remove -y "${dnf_pkgs[@]}"
+fi
+
+if (( ${#flatpak_ids[@]} > 0 )); then
+  flatpak uninstall -y "${flatpak_ids[@]}"
+fi
+
+if (( ${#mise_pkgs[@]} > 0 )); then
+  mise unuse -g -y "${mise_pkgs[@]}"
+fi
+
+update-desktop-database "${HOME}/.local/share/applications" &>/dev/null || true
+nier-show-done

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "nier.system-update",
+  "name": "Nier update",
+  "version": "1.0.0",
+  "author": "Nier",
+  "description": "Indicates available Nier updates",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "SystemUpdate.qml"
+  },
+  "barWidget": {
+    "displayName": "Nier update",
+    "description": "Indicates available Nier updates",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

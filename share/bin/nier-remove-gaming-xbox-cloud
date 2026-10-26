@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Remove the Xbox Cloud Gaming web app.
+
+set -e
+
+nier-webapp-remove "Xbox Cloud Gaming"

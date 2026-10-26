@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Restart the hyprsunset service (used for blue light filtering/night light).
+
+nier-restart-app hyprsunset

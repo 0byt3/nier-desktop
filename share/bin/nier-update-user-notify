@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Compatibility wrapper for nier-migrate-notify.
+# nier:hidden=true
+
+exec nier-migrate-notify "$@"

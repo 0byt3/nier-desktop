@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Overwrite the user config for hyprsunset with the Nier default and restart the service.
+
+nier-refresh-config hypr/hyprsunset.conf
+nier-restart-hyprsunset

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Detect ASUS Zenbook UX5406AA series laptops on Intel Panther Lake.
+
+nier-hw-match "ux5406aa" && nier-hw-intel-ptl

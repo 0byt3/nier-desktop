@@ -1,0 +1,12 @@
+# Credit: Adapted from Omarchy
+run_logged "$NIER_INSTALL/config/theme-system.sh"
+run_logged "$NIER_INSTALL/config/browser-policy.sh"
+run_logged "$NIER_INSTALL/config/increase-lockout-limit.sh"
+run_logged "$NIER_INSTALL/config/lockscreen-pam.sh"
+run_logged "$NIER_INSTALL/config/fix-powerprofilesctl-shebang.sh"
+run_logged "$NIER_INSTALL/config/ssh-command-path.sh"
+run_logged "$NIER_INSTALL/config/ssh-keepalive.sh"
+run_logged "$NIER_INSTALL/config/docker.sh"
+run_logged "$NIER_INSTALL/config/snapper.sh"
+run_logged "$NIER_INSTALL/config/enable-services.sh"
+run_logged "$NIER_INSTALL/config/firewall.sh"

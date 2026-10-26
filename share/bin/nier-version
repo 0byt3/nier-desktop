@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Print the installed Nier version
+
+nier_path=${NIER_PATH:-/usr/local/share/nier}
+nier_path=${nier_path%/}
+
+if [[ -f ${nier_path}/version ]]; then
+  tr -d '\n' <"${nier_path}/version"
+  printf '\n'
+  exit 0
+fi
+
+if command -v rpm >/dev/null; then
+  version=$(rpm -q --qf '%{VERSION}-%{RELEASE}\n' nier 2>/dev/null || true)
+  if [[ -n ${version} && ${version} != *"is not installed" ]]; then
+    printf '%s\n' "${version}"
+    exit 0
+  fi
+fi
+
+hash=$(git -C "${nier_path}" rev-parse --short HEAD 2>/dev/null || true)
+if [[ -z ${hash} ]]; then
+  hash=$(git -C "${nier_path}/../.." rev-parse --short HEAD 2>/dev/null || true)
+fi
+if [[ -n ${hash} ]]; then
+  echo "dev (${hash})"
+  exit 0
+fi
+
+echo "dev"

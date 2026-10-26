@@ -1,0 +1,170 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Set Nier as the GDM session for local users via AccountsService
+# nier:group=gdm
+# nier:requires-sudo=true
+# nier:args=[--force]
+# nier:hidden=true
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: nier-gdm-default-session [--force]
+
+GDM reads the selected session from AccountsService
+(/var/lib/AccountsService/users/<name>), not from ~/.dmrc.
+
+Without --force, only users who have no Session/XSession are assigned
+nier. With --force, every local human account is set to nier.
+USAGE
+}
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+is_human_account() {
+  local name=$1
+  local uid=$2
+  local shell=$3
+
+  if (( uid < 1000 || uid >= 65534 )); then
+    return 1
+  fi
+
+  case "${name}" in
+    nobody | nfsnobody | gdm | sddm | gnome-initial-setup)
+      return 1
+      ;;
+  esac
+
+  case "${shell}" in
+    */nologin | */false | */sync | */halt | */shutdown)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+ensure_ini_key() {
+  local file=$1
+  local section=$2
+  local key=$3
+  local value=$4
+  local tmp in_section found line
+
+  mkdir -p "$(dirname "${file}")"
+  if [[ ! -f ${file} ]]; then
+    printf '[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >"${file}"
+    return
+  fi
+
+  tmp=$(mktemp)
+  in_section=0
+  found=0
+  while IFS= read -r line || [[ -n ${line} ]]; do
+    if [[ ${line} == "[${section}]" ]]; then
+      in_section=1
+      printf '%s\n' "${line}" >>"${tmp}"
+      continue
+    fi
+    if (( in_section )) && [[ ${line} == \[* ]]; then
+      if (( found == 0 )); then
+        printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+        found=1
+      fi
+      in_section=0
+    fi
+    if (( in_section )) && [[ ${line} == "${key}="* ]]; then
+      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+      found=1
+      continue
+    fi
+    printf '%s\n' "${line}" >>"${tmp}"
+  done <"${file}"
+
+  if (( found == 0 )); then
+    if (( in_section )); then
+      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+    else
+      printf '\n[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >>"${tmp}"
+    fi
+  fi
+
+  chmod --reference="${file}" "${tmp}" 2>/dev/null || chmod 0644 "${tmp}"
+  mv "${tmp}" "${file}"
+}
+
+account_has_session() {
+  local file=$1
+
+  [[ -f ${file} ]] || return 1
+  grep -qE '^(Session|XSession)=.+' "${file}"
+}
+
+set_account_session() {
+  local file=$1
+  local session=$2
+
+  if [[ ! -f ${file} ]]; then
+    mkdir -p "$(dirname "${file}")"
+    cat >"${file}" <<EOF
+[User]
+Session=${session}
+XSession=${session}
+SystemAccount=false
+EOF
+    chmod 0644 "${file}"
+    return
+  fi
+
+  ensure_ini_key "${file}" User Session "${session}"
+  ensure_ini_key "${file}" User XSession "${session}"
+  if ! grep -q '^SystemAccount=' "${file}"; then
+    ensure_ini_key "${file}" User SystemAccount false
+  fi
+}
+
+force=0
+session=nier
+
+while (($#)); do
+  case "$1" in
+    --force)
+      force=1
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+(( EUID == 0 )) || die "nier-gdm-default-session must run as root"
+
+mkdir -p /var/lib/AccountsService/users
+
+while IFS=: read -r name _ uid _ _ _ shell; do
+  [[ -n ${name} ]] || continue
+  is_human_account "${name}" "${uid}" "${shell}" || continue
+  file=/var/lib/AccountsService/users/${name}
+  if (( force == 0 )) && account_has_session "${file}"; then
+    continue
+  fi
+  set_account_session "${file}" "${session}"
+done < <(getent passwd)
+
+if systemctl is-active --quiet accounts-daemon.service 2>/dev/null; then
+  systemctl reload accounts-daemon.service >/dev/null 2>&1 || true
+fi

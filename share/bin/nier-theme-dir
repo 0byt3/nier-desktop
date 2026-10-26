@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Print the directory holding a theme, preferring a user-installed copy
+# nier:args=<theme-name>
+# nier:examples=nier theme dir tokyo-night
+
+theme="${1:-}"
+
+if [[ -z $theme ]]; then
+  echo "Usage: nier-theme-dir <theme-name>" >&2
+  exit 1
+fi
+
+if [[ -d $HOME/.config/nier/themes/$theme ]]; then
+  echo "$HOME/.config/nier/themes/$theme"
+else
+  echo "$NIER_PATH/themes/$theme"
+fi

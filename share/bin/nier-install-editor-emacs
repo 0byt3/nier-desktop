@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Install Emacs with Nier theme and font integration via the nier-emacs AUR package
+
+echo "Installing Emacs..."
+nier-pkg-aur-add nier-emacs && nier-install-emacs
+
+# emacsclient opens a frame on the running daemon, not a second Emacs
+setsid uwsm-app -- gtk-launch emacsclient >/dev/null 2>&1 &

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Match the Dell XPS 13 DX13260 with an Intel Panther Lake GPU.
+
+nier-hw-match "DX13260" && nier-hw-intel-ptl

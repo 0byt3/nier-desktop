@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Detect an Intel SOF-capable audio DSP
+
+lspci | grep -qiE '(Multimedia audio controller|Audio device).*Intel'

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Check whether Fedora or Nier updates are available.
+
+set -euo pipefail
+
+updates=()
+
+if command -v dnf >/dev/null 2>&1; then
+  rc=0
+  out=$(dnf check-upgrade --quiet 2>/dev/null) || rc=$?
+  if (( rc == 100 )); then
+    while IFS= read -r line; do
+      [[ -n ${line} ]] && updates+=("${line}")
+    done <<<"${out}"
+  fi
+fi
+
+if (( ${#updates[@]} > 0 )); then
+  printf '%s\n' "${updates[@]}"
+  exit 0
+else
+  echo "Nier is up to date"
+  exit 1
+fi

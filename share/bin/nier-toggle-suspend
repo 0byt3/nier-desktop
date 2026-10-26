@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggle suspend availability in the system menu
+
+nier-toggle suspend-off
+
+if nier-toggle-enabled suspend-off; then
+  nier-notification-send -g 󰒲 "Suspend removed from system menu"
+else
+  nier-notification-send -g 󰒲 "Suspend now available in system menu"
+fi

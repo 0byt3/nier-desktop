@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Check if a Hyprland toggle is currently enabled.
+# nier:args=<flag-name>
+
+[[ -f "$HOME/.local/state/nier/toggles/hypr/$1.lua" ]]

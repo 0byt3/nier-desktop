@@ -1,0 +1,8 @@
+#!/bin/sh
+# grub2-mkconfig copies /etc/kernel/cmdline onto every BLS file. Rewrite
+# Nier snapshot entries afterward so the menu keeps snapshot rootflags.
+# This script must print nothing to stdout; grub2-mkconfig captures it.
+export NIER_PATH="${NIER_PATH:-/usr/local/share/nier}"
+if [ -x "${NIER_PATH}/bin/nier-snapshot" ]; then
+  "${NIER_PATH}/bin/nier-snapshot" sync >/dev/null 2>&1 || true
+fi

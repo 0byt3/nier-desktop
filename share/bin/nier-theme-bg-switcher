@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Open a file picker to select and set a background image
+# nier:group=theme
+# nier:name=bg-switcher
+# nier:aliases=nier background
+
+set -euo pipefail
+
+picked=$(nier-file-select \
+  --title "Select Background Image" \
+  --extensions "jpg jpeg png gif bmp webp") || exit 0
+
+if [[ -n ${picked} ]]; then
+  printf '%s\n' "${picked}"
+fi

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch a terminal in the active terminal's current directory
+# nier:args=[command...]
+
+exec setsid uwsm-app -- xdg-terminal-exec --dir="$(nier-cmd-terminal-cwd)" "$@"

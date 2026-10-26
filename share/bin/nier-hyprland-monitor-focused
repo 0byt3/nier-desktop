@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Print the name of the currently focused Hyprland monitor.
+
+hyprctl monitors -j | jq -r '.[] | select(.focused == true).name'

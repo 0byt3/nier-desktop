@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Open Voxtype AI model setup
+
+set -e
+
+nier-launch-floating-terminal-with-presentation "voxtype setup model"
+nier-restart-shell

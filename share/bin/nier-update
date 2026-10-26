@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Update Fedora, Flatpak, and Mise packages
+# nier:args=[-y]
+# nier:examples=nier update | nier update -y
+# nier:requires-sudo=true
+
+set -e
+
+if [[ -z ${NIER_UPDATE_LOGGED:-} ]]; then
+  script_command=$(printf '%q ' "$0" "$@")
+  exec env NIER_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/nier-update.log"
+fi
+
+if ! nier-update-lock held; then
+  exec nier-update-lock run "$0" "$@"
+fi
+
+trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\033[0m"' ERR
+trap 'nier-update-stay-awake stop' EXIT
+
+[[ ${1:-} != "-y" ]] || export NIER_UPDATE_UNATTENDED=1
+
+if [[ ${1:-} == "-y" ]] || nier-update-confirm; then
+  nier-update-stay-awake start
+
+  echo -e "\e[32m\nUpdating Fedora DNF packages...\e[0m"
+  sudo dnf upgrade --refresh -y
+
+  if command -v flatpak >/dev/null 2>&1; then
+    echo -e "\e[32m\nUpdating Flatpak applications...\e[0m"
+    sudo flatpak update -y || true
+    flatpak update --user -y || true
+  fi
+
+  if command -v mise >/dev/null 2>&1; then
+    echo -e "\e[32m\nUpdating Mise tools...\e[0m"
+    nier-update-mise || true
+  fi
+
+  nier-hook post-update || true
+  nier-update-status || true
+
+  nier-update-stay-awake stop
+  trap - EXIT
+
+  nier-update-restart
+fi

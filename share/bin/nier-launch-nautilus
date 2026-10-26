@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch Files
+
+exec setsid uwsm-app -- nautilus --new-window

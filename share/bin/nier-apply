@@ -1,0 +1,616 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Deploy Hyprland, Quickshell, and desktop environment configs from the packaged Nier share tree
+# nier:group=apply
+# nier:args=[--force] [--system] [--system-wide|-s] [--all]
+# nier:examples=nier apply | nier apply --force | sudo nier apply --system | sudo nier apply --system-wide | sudo nier apply -s | nier apply --all
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: nier apply [--force] [--system] [--system-wide|-s] [--all]
+
+Copy packaged Nier desktop files into the places Hyprland, Quickshell, and
+the login session actually read.
+
+The RPM only installs vendor files:
+  /usr/local/bin/nier
+  /usr/local/share/nier/{hyprland,quickshell,bin,config,themes,...}
+
+This command activates them.
+
+Options:
+  --force          Overwrite already-installed user configs (backs up the previous file)
+  --system         Install session integration (profile.d, uwsm, wayland session,
+                   fonts, icons, systemd user units, sudoers) and set
+                   graphical.target. Requires root.
+  --system-wide, -s
+                   Configure /etc/skel, globally enable user units, install
+                   shell customizations, and make Nier the default GDM session
+                   for current and future users. Includes --system. Requires root.
+  --all            Run --system (via sudo if needed) and then the user apply
+  -h               Show this help
+USAGE
+}
+
+log() {
+  printf '%s\n' "$*"
+}
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+resolve_share() {
+  local current_nier_path=$1
+
+  if [[ -n ${current_nier_path} && -d ${current_nier_path}/hyprland && -d ${current_nier_path}/quickshell ]]; then
+    printf '%s' "${current_nier_path}"
+    return
+  fi
+  if [[ -d /usr/local/share/nier/hyprland && -d /usr/local/share/nier/quickshell ]]; then
+    printf '%s' '/usr/local/share/nier'
+    return
+  fi
+  die "Unable to locate packaged Nier share tree (expected /usr/local/share/nier)"
+}
+
+list_user_units() {
+  printf '%s\n' \
+    bt-agent.service \
+    nier-recover-internal-monitor.service \
+    nier-sleep-lock.service \
+    nier-migrate-notify.service \
+    nier-fcitx5.service \
+    nier-crash-watch.service
+}
+
+install_file() {
+  local src=$1
+  local dest=$2
+  local mode=${3:-0644}
+
+  [[ -e ${src} ]] || return 0
+  install -Dm"${mode}" "${src}" "${dest}"
+}
+
+ensure_ini_key() {
+  local file=$1
+  local section=$2
+  local key=$3
+  local value=$4
+  local tmp in_section found line
+
+  mkdir -p "$(dirname "${file}")"
+  if [[ ! -f ${file} ]]; then
+    printf '[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >"${file}"
+    return
+  fi
+
+  tmp=$(mktemp)
+  in_section=0
+  found=0
+  while IFS= read -r line || [[ -n ${line} ]]; do
+    if [[ ${line} == "[${section}]" ]]; then
+      in_section=1
+      printf '%s\n' "${line}" >>"${tmp}"
+      continue
+    fi
+    if (( in_section )) && [[ ${line} == \[* ]]; then
+      if (( found == 0 )); then
+        printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+        found=1
+      fi
+      in_section=0
+    fi
+    if (( in_section )) && [[ ${line} == "${key}="* ]]; then
+      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+      found=1
+      continue
+    fi
+    printf '%s\n' "${line}" >>"${tmp}"
+  done <"${file}"
+
+  if (( found == 0 )); then
+    if (( in_section )); then
+      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
+    else
+      printf '\n[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >>"${tmp}"
+    fi
+  fi
+
+  chmod --reference="${file}" "${tmp}" 2>/dev/null || chmod 0644 "${tmp}"
+  mv "${tmp}" "${file}"
+}
+
+install_gdm() {
+  local share=$1
+  local unit
+
+  if ! rpm -q gdm >/dev/null 2>&1; then
+    dnf install -y gdm accountsservice
+  fi
+
+  if [[ -f ${share}/default/gdm/custom.conf && ! -f /etc/gdm/custom.conf ]]; then
+    install_file "${share}/default/gdm/custom.conf" /etc/gdm/custom.conf 0644
+  fi
+  mkdir -p /etc/gdm
+  ensure_ini_key /etc/gdm/custom.conf daemon WaylandEnable true
+
+  for unit in "${share}/systemd/system/"*; do
+    [[ -f ${unit} ]] || continue
+    install_file "${unit}" "/usr/lib/systemd/system/$(basename "${unit}")" 0644
+  done
+
+  systemctl disable --now sddm.service >/dev/null 2>&1 || true
+  systemctl enable gdm.service >/dev/null 2>&1 || true
+}
+
+seed_file() {
+  local src=$1
+  local dest=$2
+  local force=$3
+
+  [[ -e ${src} ]] || return 0
+  mkdir -p "$(dirname "${dest}")"
+
+  if [[ -e ${dest} ]]; then
+    if [[ ${force} != "1" ]]; then
+      return 0
+    fi
+    if ! cmp -s "${src}" "${dest}"; then
+      cp -f "${dest}" "${dest}.bak.$(date +%s)"
+    fi
+  fi
+
+  cp -f "${src}" "${dest}"
+}
+
+seed_tree() {
+  local src=$1
+  local dest=$2
+  local force=$3
+  local rel path
+
+  [[ -d ${src} ]] || return 0
+
+  while IFS= read -r -d '' path; do
+    rel=${path#"${src}"/}
+    seed_file "${path}" "${dest}/${rel}" "${force}"
+  done < <(find "${src}" -type f -print0)
+}
+
+seed_desktop_into() {
+  local share=$1
+  local home=$2
+  local force=$3
+  local config_home=$4
+  local state_home=$5
+
+  mkdir -p \
+    "${config_home}" \
+    "${home}/.local/share/applications" \
+    "${state_home}/nier/toggles/hypr" \
+    "${state_home}/nier/defaults" \
+    "${config_home}/nier/branding"
+
+  seed_tree "${share}/config" "${config_home}" "${force}"
+
+  seed_file "${share}/icon.txt" "${config_home}/nier/branding/about.txt" "${force}"
+  seed_file "${share}/logo.txt" "${config_home}/nier/branding/screensaver.txt" "${force}"
+  seed_file "${share}/default/xcompose" "${home}/.XCompose" "${force}"
+  seed_file "${share}/hyprland/toggles/flags.lua" "${state_home}/nier/toggles/hypr/flags.lua" "${force}"
+
+  if [[ ! -f ${state_home}/nier/defaults/editor ]]; then
+    printf 'nvim\n' >"${state_home}/nier/defaults/editor"
+  fi
+
+  if [[ ! -e ${config_home}/hypr/hyprland.lua ]]; then
+    die "Hyprland user config was not created at ${config_home}/hypr/hyprland.lua"
+  fi
+  if [[ ! -e ${share}/quickshell/shell.qml ]]; then
+    die "Packaged Quickshell entrypoint missing: ${share}/quickshell/shell.qml"
+  fi
+}
+
+seed_shell_into() {
+  local share=$1
+  local home=$2
+  local force=$3
+  local basic_cli_src=${share}/basic-cli/bash
+  local basic_cli_dest=${home}/.config/basic-cli
+
+  [[ -d ${basic_cli_src} ]] || return 0
+
+  seed_file "${basic_cli_src}/.bashrc" "${home}/.bashrc" "${force}"
+  seed_file "${basic_cli_src}/.bash_profile" "${home}/.bash_profile" "${force}"
+  seed_file "${basic_cli_src}/.bash_logout" "${home}/.bash_logout" "${force}"
+  seed_file "${basic_cli_src}/.inputrc" "${home}/.inputrc" "${force}"
+
+  mkdir -p "${basic_cli_dest}/aliases.d" "${basic_cli_dest}/completions.d"
+  seed_file "${basic_cli_src}/prompt.bash" "${basic_cli_dest}/prompt.bash" "${force}"
+  seed_file "${basic_cli_src}/blesh.bash" "${basic_cli_dest}/blesh.bash" "${force}"
+  seed_file "${basic_cli_src}/blerc" "${basic_cli_dest}/blerc" "${force}"
+  seed_tree "${basic_cli_src}/aliases.d" "${basic_cli_dest}/aliases.d" "${force}"
+  seed_tree "${basic_cli_src}/completions.d" "${basic_cli_dest}/completions.d" "${force}"
+}
+
+seed_skill_links_into() {
+  local share=$1
+  local home=$2
+  local skill name dest
+
+  [[ -d ${share}/default/agents/skills ]] || return 0
+
+  mkdir -p \
+    "${home}/.agents/skills" \
+    "${home}/.claude/skills" \
+    "${home}/.codex/skills" \
+    "${home}/.pi/agent/skills" \
+    "${home}/.hermes/skills"
+
+  for skill in "${share}/default/agents/skills/"*/; do
+    [[ -d ${skill} ]] || continue
+    skill=${skill%/}
+    name=${skill##*/}
+    for dest in \
+      "${home}/.agents/skills/${name}" \
+      "${home}/.claude/skills/${name}" \
+      "${home}/.codex/skills/${name}" \
+      "${home}/.pi/agent/skills/${name}" \
+      "${home}/.hermes/skills/${name}"; do
+      ln -sfn "${skill}" "${dest}"
+    done
+  done
+}
+
+enable_units_user() {
+  local unit
+
+  command -v systemctl >/dev/null || return 0
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
+  while IFS= read -r unit; do
+    [[ -n ${unit} ]] || continue
+    systemctl --user enable "${unit}" >/dev/null 2>&1 || true
+  done < <(list_user_units)
+}
+
+enable_units_global() {
+  local unit
+
+  command -v systemctl >/dev/null || return 0
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  while IFS= read -r unit; do
+    [[ -n ${unit} ]] || continue
+    systemctl --global enable "${unit}" >/dev/null 2>&1 || true
+  done < <(list_user_units)
+}
+
+install_environment_d() {
+  local share=$1
+
+  mkdir -p /etc/environment.d
+  cat >/etc/environment.d/10-nier.conf <<EOF
+NIER_PATH=${share}
+EOF
+}
+
+snapper_set_key() {
+  local file=$1
+  local key=$2
+  local value=$3
+
+  [[ -f ${file} ]] || return 0
+  if grep -q "^${key}=" "${file}"; then
+    sed -i "s|^${key}=.*|${key}=\"${value}\"|" "${file}"
+  else
+    printf '%s="%s"\n' "${key}" "${value}" >>"${file}"
+  fi
+}
+
+configure_snapper_config() {
+  local name=$1
+  local mountpoint=$2
+  local share=$3
+  local template=${share}/default/snapper/${name}
+  local config=/etc/snapper/configs/${name}
+  local configs_file
+
+  if [[ ! -f ${config} ]]; then
+    snapper --no-dbus -c "${name}" create-config "${mountpoint}" >/dev/null 2>&1 \
+      || snapper -c "${name}" create-config "${mountpoint}" >/dev/null
+  fi
+  [[ -f ${config} ]] || return 1
+
+  if [[ -f ${template} ]]; then
+    snapper_set_key "${config}" NUMBER_CLEANUP yes
+    snapper_set_key "${config}" NUMBER_MIN_AGE 0
+    snapper_set_key "${config}" NUMBER_LIMIT 5
+    snapper_set_key "${config}" NUMBER_LIMIT_IMPORTANT 5
+    snapper_set_key "${config}" TIMELINE_CREATE no
+    snapper_set_key "${config}" SUBVOLUME "${mountpoint}"
+    snapper_set_key "${config}" FSTYPE btrfs
+  fi
+
+  configs_file=$(nier_snapper_configs_file)
+  mkdir -p "$(dirname "${configs_file}")"
+  if [[ ! -f ${configs_file} ]]; then
+    printf 'SNAPPER_CONFIGS="%s"\n' "${name}" >"${configs_file}"
+    return 0
+  fi
+  if grep -q '^SNAPPER_CONFIGS=' "${configs_file}"; then
+    if ! grep -qE "SNAPPER_CONFIGS=\".*${name}" "${configs_file}"; then
+      sed -i "s/^SNAPPER_CONFIGS=\"\\(.*\\)\"/SNAPPER_CONFIGS=\"\\1 ${name}\"/" "${configs_file}"
+    fi
+  else
+    printf 'SNAPPER_CONFIGS="%s"\n' "${name}" >>"${configs_file}"
+  fi
+}
+
+install_snapshot_boot() {
+  local share=$1
+  local module_src=${share}/dracut/90nier-snapshot-overlay
+  local module_dest=/usr/lib/dracut/modules.d/90nier-snapshot-overlay
+  local dracut_conf=${share}/default/dracut/nier-snapshot.conf
+
+  if ! nier_is_btrfs /; then
+    log "Warning: / is not Btrfs; snapshot-boot dracut modules were not deployed."
+    return 0
+  fi
+
+  if ! command -v snapper >/dev/null; then
+    log "Warning: snapper is not installed; snapshot-boot support was not deployed."
+    return 0
+  fi
+
+  log "Configuring Snapper and snapshot-boot dracut modules"
+
+  configure_snapper_config root / "${share}"
+  if nier_var_is_separate_btrfs; then
+    configure_snapper_config var /var "${share}"
+  fi
+  systemctl disable --now snapper-timeline.timer >/dev/null 2>&1 || true
+  systemctl enable snapper-cleanup.timer >/dev/null 2>&1 || true
+
+  if [[ ! -d ${module_src} ]]; then
+    log "Warning: packaged dracut module missing at ${module_src}"
+    return 0
+  fi
+
+  mkdir -p "${module_dest}"
+  install -Dm0755 "${module_src}/module-setup.sh" "${module_dest}/module-setup.sh"
+  install -Dm0755 "${module_src}/nier-snapshot-pre-pivot.sh" "${module_dest}/nier-snapshot-pre-pivot.sh"
+  install_file "${dracut_conf}" /etc/dracut.conf.d/50-nier-snapshot.conf 0644
+  command -v restorecon >/dev/null && restorecon -R "${module_dest}" /etc/dracut.conf.d/50-nier-snapshot.conf >/dev/null 2>&1 || true
+
+  if command -v grub2-editenv >/dev/null; then
+    grub2-editenv - unset menu_auto_hide || true
+  fi
+
+  if command -v dracut >/dev/null; then
+    log "Rebuilding initramfs to include snapshot-boot modules"
+    dracut --force --regenerate-all
+  else
+    log "Warning: dracut is not installed; initramfs was not rebuilt."
+  fi
+
+  log "Snapshot boot is active. nier-snapshot create writes GRUB entries for / and /var."
+}
+
+apply_system() {
+  local share=$1
+  local unit src dest
+
+  (( EUID == 0 )) || die "nier apply --system must run as root"
+
+  # shellcheck source=/usr/local/share/nier/lib/nier-btrfs.sh
+  source "${share}/lib/nier-btrfs.sh"
+
+  log "Installing session integration from ${share}"
+
+  install_file "${share}/default/profile.d/nier.sh" /etc/profile.d/nier.sh 0644
+  if [[ ! -f /etc/nier.conf ]]; then
+    cat >/etc/nier.conf <<'EOF'
+# Optional Nier overrides. Uncomment to point a development checkout
+# at a different share tree.
+# NIER_PATH=/usr/local/share/nier
+EOF
+  fi
+
+  install_environment_d "${share}"
+  install_file "${share}/default/uwsm/env.d/10-nier" /usr/share/uwsm/env.d/10-nier 0644
+  install_file "${share}/default/wayland-sessions/nier.desktop" /usr/share/wayland-sessions/nier.desktop 0644
+  install_file "${share}/default/wayland-sessions/nier.desktop" /usr/local/share/wayland-sessions/nier.desktop 0644
+  install_file "${share}/default/xdg-terminal-exec/hyprland-xdg-terminals.list" /usr/share/xdg-terminal-exec/hyprland-xdg-terminals.list 0644
+  install_file "${share}/etc-overrides/fastfetch-config.jsonc" /etc/fastfetch/config.jsonc 0644
+
+  if [[ -f ${share}/default/fonts/omarchy/omarchy.ttf ]]; then
+    install_file "${share}/default/fonts/omarchy/omarchy.ttf" /usr/share/fonts/omarchy/omarchy.ttf 0644
+  fi
+  if [[ -d ${share}/fonts/TTF ]]; then
+    mkdir -p /usr/share/fonts/TTF
+    cp -a "${share}/fonts/TTF/." /usr/share/fonts/TTF/
+  fi
+  if [[ -f ${share}/default/fontconfig/conf.avail/50-omarchy.conf ]]; then
+    install_file "${share}/default/fontconfig/conf.avail/50-omarchy.conf" /usr/share/fontconfig/conf.avail/50-nier.conf 0644
+    ln -sfn /usr/share/fontconfig/conf.avail/50-nier.conf /etc/fonts/conf.d/50-nier.conf
+  fi
+
+  if [[ -d ${share}/icons/hicolor ]]; then
+    mkdir -p /usr/share/icons/hicolor
+    cp -a "${share}/icons/hicolor/." /usr/share/icons/hicolor/
+  fi
+  install_file "${share}/icon.png" /usr/share/pixmaps/nier.png 0644
+
+  if [[ -d ${share}/applications ]]; then
+    mkdir -p /usr/local/share/applications
+    cp -a "${share}/applications/." /usr/local/share/applications/
+  fi
+
+  for unit in "${share}/systemd/user/"*.service; do
+    [[ -f ${unit} ]] || continue
+    install_file "${unit}" "/usr/lib/systemd/user/$(basename "${unit}")" 0644
+  done
+
+  for src in "${share}/sudoers.d/"*; do
+    [[ -f ${src} ]] || continue
+    dest="/etc/sudoers.d/$(basename "${src}")"
+    install_file "${src}" "${dest}" 0440
+  done
+
+  install_gdm "${share}"
+  install_snapshot_boot "${share}"
+  if [[ -f ${share}/grub.d/01_nier_sync_bls ]]; then
+    install_file "${share}/grub.d/01_nier_sync_bls" /etc/grub.d/01_nier_sync_bls 0755
+  fi
+
+  if [[ -f ${share}/basic-cli/bash/completions/nft ]]; then
+    install_file "${share}/basic-cli/bash/completions/nft" /usr/share/bash-completion/completions/nft 0644
+  fi
+
+  command -v fc-cache >/dev/null && fc-cache -f >/dev/null 2>&1 || true
+  command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache /usr/share/icons/hicolor >/dev/null 2>&1 || true
+  command -v update-desktop-database >/dev/null && update-desktop-database /usr/local/share/applications >/dev/null 2>&1 || true
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  systemctl set-default graphical.target >/dev/null 2>&1 || true
+
+  log "GDM installed and enabled; default target is graphical.target."
+  log "Select the 'Nier (Hyprland uwsm)' session at login."
+}
+
+apply_system_wide() {
+  local share=$1
+  local skel=/etc/skel
+
+  (( EUID == 0 )) || die "nier apply --system-wide must run as root"
+
+  apply_system "${share}"
+
+  log "Seeding ${skel} so new users inherit the Nier desktop and shell"
+
+  seed_desktop_into "${share}" "${skel}" 1 "${skel}/.config" "${skel}/.local/state"
+  seed_shell_into "${share}" "${skel}" 1
+  seed_skill_links_into "${share}" "${skel}"
+  enable_units_global
+
+  "${share}/bin/nier-gdm-default-session" --force
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  systemctl enable --now nier-gdm-default-session.path >/dev/null 2>&1 || true
+
+  log "New-user defaults installed."
+  log "  Skel desktop:     ${skel}/.config/hypr and ${skel}/.config/nier"
+  log "  Skel shell:       ${skel}/.bashrc and ${skel}/.config/basic-cli"
+  log "  GDM session:      Nier (Hyprland uwsm) via AccountsService"
+  log "  Global units:     /etc/systemd/user/*.wants (systemctl --global)"
+  log "  User environment: /etc/environment.d/10-nier.conf"
+}
+
+apply_user() {
+  local share=$1
+  local home=$2
+  local force=$3
+  local config_home state_home
+
+  (( EUID != 0 )) || die "nier apply (user) must not run as root. Run it as the desktop user, or use --system / --system-wide."
+
+  config_home="${XDG_CONFIG_HOME:-${home}/.config}"
+  state_home="${XDG_STATE_HOME:-${home}/.local/state}"
+
+  log "Deploying desktop configs from ${share} into ${config_home}"
+
+  seed_desktop_into "${share}" "${home}" "${force}" "${config_home}" "${state_home}"
+  enable_units_user
+
+  log "User desktop configs deployed."
+  log "  Hyprland overlay:  ${config_home}/hypr"
+  log "  Quickshell tree:   ${share}/quickshell  (via NIER_PATH, also linked as ${share}/shell)"
+  log "  Shell settings:    ${config_home}/nier/shell.json"
+}
+
+force=0
+do_system=0
+do_system_wide=0
+do_user=0
+do_all=0
+
+while (($#)); do
+  case "$1" in
+    --force)
+      force=1
+      shift
+      ;;
+    --system)
+      do_system=1
+      shift
+      ;;
+    --system-wide|-s)
+      do_system_wide=1
+      shift
+      ;;
+    --all)
+      do_all=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if (( do_all == 0 && do_system == 0 && do_system_wide == 0 )); then
+  do_user=1
+fi
+if (( do_all )); then
+  do_system=1
+  do_user=1
+fi
+if (( do_system_wide )); then
+  do_system=0
+fi
+
+share=$(resolve_share "${NIER_PATH:-}")
+export NIER_PATH="${share}"
+export PATH="${share}/bin:/usr/local/bin${PATH:+:${PATH}}"
+
+root_args=()
+if (( do_system_wide )); then
+  root_args+=(--system-wide)
+elif (( do_system )); then
+  root_args+=(--system)
+fi
+
+force_args=()
+if (( force )); then
+  force_args+=(--force)
+fi
+
+if (( ${#root_args[@]} > 0 )); then
+  if (( EUID != 0 )); then
+    sudo --preserve-env=NIER_PATH env NIER_PATH="${share}" "$0" "${root_args[@]}" "${force_args[@]}"
+  elif (( do_system_wide )); then
+    apply_system_wide "${share}"
+  else
+    apply_system "${share}"
+  fi
+fi
+
+if (( do_user )); then
+  if (( EUID == 0 )); then
+    if [[ -n ${SUDO_USER:-} && ${SUDO_USER} != "root" ]]; then
+      user_home=$(getent passwd "${SUDO_USER}" | cut -d: -f6)
+      exec sudo --preserve-env=NIER_PATH -u "${SUDO_USER}" env HOME="${user_home}" NIER_PATH="${share}" PATH="${share}/bin:/usr/local/bin:${PATH}" "$0" "${force_args[@]}"
+    fi
+    die "nier apply (user) must run as the desktop user"
+  fi
+  apply_user "${share}" "${HOME}" "${force}"
+fi

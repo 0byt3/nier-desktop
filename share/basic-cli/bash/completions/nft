@@ -1,0 +1,79 @@
+# bash completion for nft. Ubuntu's nftables package does not ship one.
+_nft() {
+    local cur prev index word command position
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD - 1]}
+
+    case $prev in
+        -f | --file | -I | --includepath)
+            COMPREPLY=($(compgen -f -- "$cur"))
+            return 0
+            ;;
+        -d | --debug)
+            COMPREPLY=($(compgen -W "scanner parser eval netlink mnl proto-ctx segtree all" -- "$cur"))
+            return 0
+            ;;
+        -D | --define)
+            return 0
+            ;;
+    esac
+
+    if [[ $cur == -* ]]; then
+        COMPREPLY=($(compgen -W "
+            -h --help -v --version -V
+            -f --file -D --define -i --interactive -I --includepath -c --check -o --optimize
+            -a --handle -s --stateless -t --terse -S --service -N --reversedns -u --guid
+            -n --numeric -y --numeric-priority -p --numeric-protocol -T --numeric-time
+            -e --echo -j --json -d --debug
+        " -- "$cur"))
+        return 0
+    fi
+
+    command=
+    position=0
+    index=1
+    while (( index < COMP_CWORD )); do
+        word=${COMP_WORDS[index]}
+        case $word in
+            -f | --file | -I | --includepath | -D | --define | -d | --debug)
+                (( index += 2 ))
+                continue
+                ;;
+            -*)
+                (( index += 1 ))
+                continue
+                ;;
+        esac
+        if [[ -z $command ]]; then
+            command=$word
+        fi
+        (( position += 1 ))
+        (( index += 1 ))
+    done
+
+    if [[ -z $command ]]; then
+        COMPREPLY=($(compgen -W "add create insert replace delete destroy get list reset flush rename describe export import monitor" -- "$cur"))
+        return 0
+    fi
+
+    case $prev in
+        table | chain | rule | set | map | element | flowtable | counter | quota | limit | secmark | synproxy | hooks)
+            COMPREPLY=($(compgen -W "ip ip6 inet arp bridge netdev" -- "$cur"))
+            return 0
+            ;;
+    esac
+
+    if (( position == 1 )); then
+        case $command in
+            monitor)
+                COMPREPLY=($(compgen -W "new destroy trace tables chains sets rules elements ruleset" -- "$cur"))
+                ;;
+            *)
+                COMPREPLY=($(compgen -W "table tables chain chains rule rules set sets map maps element elements flowtable flowtables counter counters quota quotas ct limit limits secmark secmarks synproxy synproxies hooks meter meters" -- "$cur"))
+                ;;
+        esac
+    fi
+}
+
+complete -F _nft nft

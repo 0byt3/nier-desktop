@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Open Voxtype configuration
+
+set -e
+
+nier-launch-floating-terminal-with-presentation "voxtype configure"
+nier-restart-shell

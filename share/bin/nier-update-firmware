@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Update system firmware using fwupd
+# nier:requires-sudo=true
+
+set -e
+echo -e "\e[32mUpdate Firmware\e[0m"
+
+if nier-cmd-missing fwupdmgr; then
+  nier-pkg-add fwupd
+fi
+
+fwupdmgr refresh --force
+sudo fwupdmgr update

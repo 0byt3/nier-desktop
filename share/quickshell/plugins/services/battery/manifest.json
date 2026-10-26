@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "nier.battery",
+  "name": "Battery",
+  "version": "1.0.0",
+  "author": "Nier",
+  "description": "Low battery warning service",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

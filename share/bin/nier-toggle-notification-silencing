@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggle notification do-not-disturb mode
+
+state=$(nier-shell notifications toggleDnd 2>/dev/null || echo "")
+nier-shell -q nier.indicators refresh

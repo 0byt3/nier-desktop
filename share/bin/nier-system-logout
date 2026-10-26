@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Log out after closing application windows
+# nier:examples=nier logout | nier system logout
+# nier:aliases=nier logout
+
+nohup bash -c "sleep 2 && uwsm stop" >/dev/null 2>&1 &
+
+nier-osd -i logout -m "Logging out" -d 5000
+
+# Now close all windows
+nier-hyprland-window-close-all
+sleep 1 # Allow apps like Chrome to shutdown correctly

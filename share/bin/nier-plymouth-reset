@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Restore the default Nier Plymouth boot theme and SDDM login screen
+# nier:requires-sudo=true
+
+set -euo pipefail
+
+"$NIER_PATH/bin/nier-refresh-plymouth"
+"$NIER_PATH/bin/nier-refresh-sddm"

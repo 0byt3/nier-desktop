@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch the default editor selected via Nier defaults.
+# nier:args=[--inline] <path>
+
+default_editor="$HOME/.local/state/nier/defaults/editor"
+
+if [[ ${1:-} == "--inline" ]]; then
+  inline=true
+  shift
+else
+  inline=false
+fi
+
+if [[ -f $default_editor ]]; then
+  read -r editor <"$default_editor"
+else
+  editor="nvim"
+fi
+
+nier-cmd-present "$editor" || editor="nvim"
+
+case "${editor##*/}" in
+nvim | vim | nano | micro | hx | helix | fresh)
+  if [[ $inline == "true" ]]; then
+    exec "$editor" -- "$@"
+  else
+    exec nier-launch-tui "$editor" -- "$@"
+  fi
+  ;;
+*)
+  exec setsid uwsm-app -- "$editor" -- "$@"
+  ;;
+esac

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Refresh the current theme from its templates.
+
+THEME_NAME_PATH="$HOME/.local/state/nier/current/theme.name"
+
+if [[ -f $THEME_NAME_PATH ]]; then
+  NIER_THEME_SKIP_BACKGROUND=1 nier-theme-set "$(cat $THEME_NAME_PATH)"
+fi

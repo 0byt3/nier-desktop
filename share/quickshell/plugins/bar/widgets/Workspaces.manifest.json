@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "nier.workspaces",
+  "name": "Workspaces",
+  "version": "1.0.0",
+  "author": "Nier",
+  "description": "Active workspace indicator with switcher panel",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Workspaces.qml"
+  },
+  "barWidget": {
+    "displayName": "Workspaces",
+    "description": "Active workspace indicator with switcher panel",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

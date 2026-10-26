@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Remove the GeForce NOW Flatpak app and its data.
+# nier:group=remove
+# nier:name=gaming geforce-now
+
+set -e
+
+if nier-cmd-present flatpak && flatpak info com.nvidia.geforcenow &>/dev/null; then
+  flatpak uninstall -y --delete-data com.nvidia.geforcenow
+fi
+
+echo ""
+echo "GeForce NOW removed."

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Check whether a webcam is available
+
+[[ -n $(nier-capture-webcam-list) ]]

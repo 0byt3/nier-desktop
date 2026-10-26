@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Refresh the shell update status
+# nier:hidden=true
+
+set -e
+
+if nier-update-available >/dev/null; then
+  nier-shell -q nier.system-update refresh
+else
+  nier-shell -q nier.system-update clear
+fi

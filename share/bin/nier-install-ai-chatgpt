@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Install the ChatGPT desktop app
+# nier:requires-sudo=true
+
+set -e
+
+echo "Installing ChatGPT..."
+nier-pkg-add openai-codex-desktop
+
+echo "Opening ChatGPT..."
+setsid uwsm-app -- /usr/bin/chatgpt >/dev/null 2>&1 &
+
+echo ""
+echo "ChatGPT has been installed."

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Apply the current theme keyboard color to supported keyboards
+# nier:hidden=true
+
+nier-theme-set-keyboard-asus-rog
+nier-theme-set-keyboard-f16

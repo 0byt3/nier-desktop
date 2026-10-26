@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Print the active Nier mirror and package channel
+
+if grep -q "https://stable-mirror.nier.org/" /etc/pacman.d/mirrorlist; then
+  mirror="stable"
+elif grep -q "https://rc-mirror.nier.org/" /etc/pacman.d/mirrorlist; then
+  mirror="rc"
+elif grep -q "https://mirror.nier.org/" /etc/pacman.d/mirrorlist; then
+  mirror="edge"
+else
+  mirror="unknown"
+fi
+
+if grep -q "https://pkgs.nier.org/stable/" /etc/pacman.conf; then
+  pkgs="stable"
+elif grep -q "https://pkgs.nier.org/rc/" /etc/pacman.conf; then
+  pkgs="rc"
+elif grep -q "https://pkgs.nier.org/edge/" /etc/pacman.conf; then
+  pkgs="edge"
+else
+  pkgs="unknown"
+fi
+
+if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi

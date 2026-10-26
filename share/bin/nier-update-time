@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Restart system time synchronization
+# nier:requires-sudo=true
+
+echo "Updating time..."
+if systemctl list-unit-files chronyd.service >/dev/null 2>&1; then
+  sudo systemctl restart chronyd.service
+  sudo chronyc makestep >/dev/null 2>&1 || true
+else
+  sudo systemctl restart systemd-timesyncd.service
+fi

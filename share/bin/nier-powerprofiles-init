@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Set the correct power profile on boot based on current AC/battery state.
+
+exec nier-powerprofiles-set autodetect

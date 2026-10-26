@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Sync Nier theme to all Obsidian vaults
+# nier:hidden=true
+
+CURRENT_THEME_DIR="$HOME/.local/state/nier/current/theme"
+
+[[ -f $CURRENT_THEME_DIR/obsidian.css ]] || exit 0
+
+jq -r '.vaults | values[].path' ~/.config/obsidian/obsidian.json 2>/dev/null | while read -r vault_path; do
+  [[ -d $vault_path/.obsidian ]] || continue
+
+  theme_dir="$vault_path/.obsidian/themes/Nier"
+  mkdir -p "$theme_dir"
+
+  [[ -f $theme_dir/manifest.json ]] || cat >"$theme_dir/manifest.json" <<'EOF'
+{
+  "name": "Nier",
+  "version": "1.0.0",
+  "minAppVersion": "0.16.0",
+  "description": "Automatically syncs with your current Nier system theme colors and fonts",
+  "author": "Nier",
+  "authorUrl": "https://nier.org"
+}
+EOF
+
+  cp "$CURRENT_THEME_DIR/obsidian.css" "$theme_dir/theme.css"
+done

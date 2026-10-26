@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Edit, set, or reset screensaver branding
+# nier:group=branding
+# nier:name=screensaver
+# nier:args=<image|text|reset>
+# nier:examples=nier branding screensaver image | nier branding screensaver text | nier branding screensaver reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(nier-file-select --title "Pick PNG or SVG for screensaver" --extensions "png svg")
+  if nier-transcode-ascii "$image" ~/.config/nier/branding/screensaver.txt; then
+    nier-launch-screensaver force >/dev/null 2>&1
+  fi
+  ;;
+text)
+  nier-launch-editor ~/.config/nier/branding/screensaver.txt >/dev/null 2>&1 && nier-launch-screensaver force >/dev/null 2>&1
+  ;;
+reset)
+  cp "$NIER_PATH/logo.txt" ~/.config/nier/branding/screensaver.txt && nier-launch-screensaver force >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: nier-branding-screensaver <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

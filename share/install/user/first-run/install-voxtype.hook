@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+if nier-done ensure voxtype-install-invitation; then
+  nier-notification-send -u critical -g  "Install Dictation with Voxtype" \
+    "Click to install voice dictation for Nier." \
+    --exec nier-launch-floating-terminal-with-presentation nier-voxtype-install
+fi

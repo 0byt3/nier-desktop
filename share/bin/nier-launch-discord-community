@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Open the Nier Discord community in the Discord app or a browser.
+
+invite="https://discord.gg/tXFUdasqhY"
+
+if nier-cmd-present discord; then
+  exec setsid uwsm-app -- discord --url -- "discord://-/invite/${invite##*/}"
+else
+  exec nier-launch-webapp "$invite"
+fi

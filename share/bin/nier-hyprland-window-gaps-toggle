@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggles the window gaps globally between no gaps and the default.
+
+nier-hyprland-toggle window-no-gaps

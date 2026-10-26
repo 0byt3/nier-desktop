@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Reload Helix configuration
+
+if pgrep -x helix >/dev/null; then
+  pkill -USR1 helix
+fi

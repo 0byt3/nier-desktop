@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Set the Nier package channel.
+# nier:args=<stable|rc|edge|dev>
+# nier:requires-sudo=true
+
+set -euo pipefail
+
+usage() { echo "Usage: nier-channel-set [stable|rc|edge|dev]"; }
+fail() { echo "Error: $*" >&2; exit 1; }
+
+confirm_dev() {
+  cat <<'WARNING'
+
+The dev channel links Nier directly to a checkout of the source in ~/nier.
+It's exclusively intended for developers working on Nier itself.
+
+WARNING
+
+  gum confirm --default=false "Switch to dev channel?"
+}
+
+validate_dev_checkout() {
+  local checkout="$1"
+
+  if [[ -e $checkout && ! -d $checkout/.git ]]; then
+    fail "$checkout already exists and is not a git checkout."
+  fi
+
+  if [[ -d $checkout/.git && ( ! -d $checkout/bin || ! -d $checkout/default || ! -d $checkout/shell ) ]]; then
+    fail "$checkout is a git checkout, but it does not look like Nier."
+  fi
+}
+
+link_dev_checkout() {
+  local checkout="$1"
+  [[ -d $checkout/.git ]] || git clone https://github.com/omacom/nier.git "$checkout"
+
+  nier-dev-link "$checkout" --no-reboot
+}
+
+(( $# > 0 )) || { usage; exit 1; }
+
+dev_checkout=""
+channel="$1"
+leaving_dev=0
+
+case "$channel" in
+  stable)
+    pacman_channel=stable
+    packages=(nier nier-settings)
+    ;;
+  rc)
+    pacman_channel=rc
+    packages=(nier nier-settings)
+    ;;
+  edge)
+    pacman_channel=edge
+    packages=(nier-dev nier-settings-dev)
+    ;;
+  dev)
+    confirm_dev || { echo "Cancelled."; exit 0; }
+    dev_checkout="$HOME/nier"
+    validate_dev_checkout "$dev_checkout"
+    pacman_channel=edge
+    packages=(nier-dev nier-settings-dev)
+    ;;
+  *)
+    echo "Unknown channel: $channel" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z $dev_checkout && $NIER_PATH != "/usr/local/share/nier" ]]; then
+  leaving_dev=1
+fi
+
+if [[ -n $dev_checkout ]]; then
+  link_dev_checkout "$dev_checkout"
+  export NIER_PATH="$dev_checkout"
+  export PATH="$NIER_PATH/bin:$PATH"
+  nier-state set reboot-required
+fi
+
+nier-refresh-pacman "$pacman_channel"
+# --ask 4 accepts nier <-> nier-dev replacement prompts without file overwrites.
+sudo env NIER_UPDATE_PACMAN=1 pacman -S --needed --noconfirm --ask 4 "${packages[@]}"
+
+if [[ -z $dev_checkout ]]; then
+  nier-dev-unlink --no-reboot
+  export NIER_PATH=/usr/local/share/nier
+
+  if (( leaving_dev )); then
+    nier-state set reboot-required
+  fi
+fi
+
+nier-update -y

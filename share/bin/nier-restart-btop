@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Reload btop configuration (used by the Nier theme switching).
+
+pkill -SIGUSR2 btop

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch or attach to the Work tmux session in a terminal
+
+exec nier-launch-terminal bash -c "tmux attach || tmux new -s Work"

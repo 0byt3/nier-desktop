@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Install Heroic Games Launcher (Epic, GOG, Amazon Prime Gaming) with graphics drivers.
+# nier:requires-sudo=true
+
+set -e
+
+echo "Installing Heroic Games Launcher..."
+nier-pkg-add heroic-games-launcher-bin
+nier-install-gaming-gpu-lib32
+
+setsid uwsm-app -- gtk-launch heroic >/dev/null 2>&1 &

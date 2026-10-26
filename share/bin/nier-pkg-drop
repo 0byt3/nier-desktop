@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Remove all the named packages from the system if they're installed (otherwise ignore).
+# nier:args=<packages...>
+# nier:requires-sudo=true
+
+installed=()
+for pkg in "$@"; do
+  if rpm -q -- "$pkg" &>/dev/null; then
+    installed+=("$pkg")
+  fi
+done
+
+if (( ${#installed[@]} > 0 )); then
+  sudo dnf remove -y -- "${installed[@]}"
+fi

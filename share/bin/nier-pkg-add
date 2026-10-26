@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Install Fedora packages if they are missing
+# nier:args=<packages...>
+# nier:examples=nier pkg add jq ripgrep
+# nier:requires-sudo=true
+
+if nier-pkg-missing "$@"; then
+  if (( EUID == 0 )); then
+    dnf install -y -- "$@" || exit 1
+  else
+    sudo dnf install -y -- "$@" || exit 1
+  fi
+fi
+
+for pkg in "$@"; do
+  if ! rpm -q --whatprovides "$pkg" &>/dev/null; then
+    echo -e "\033[31mError: Package '${pkg}' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

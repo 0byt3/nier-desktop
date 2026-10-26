@@ -1,0 +1,5 @@
+# Credit: Adapted from Omarchy
+# Terminal emulator preference order for xdg-terminal-exec
+# The first found and valid terminal will be used
+com.mitchellh.ghostty.desktop
+ghostty.desktop

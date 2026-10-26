@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Show a unified fuzzy-finder TUI for picking DNF, Flatpak, and mise packages to install.
+# nier:requires-sudo=true
+
+set -euo pipefail
+
+format_package_row() {
+  local name=$1
+  local tag=$2
+  local kind=$3
+  local source_tag=$4
+  local pkg_id=$5
+  printf '%-42s [%-28s]\t%s\t%s\t%s\n' "${name}" "${tag}" "${kind}" "${source_tag}" "${pkg_id}"
+}
+
+mise_backend_kind() {
+  local backend=$1
+  if [[ ${backend} == *:* ]]; then
+    printf '%s\n' "${backend%%:*}"
+  else
+    printf '%s\n' "${backend}"
+  fi
+}
+
+emit_mise_registry_rows() {
+  local json=$1
+  local name backend kind tag
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '
+      .[]
+      | select(.short != null and .short != "")
+      | [.short, (.backends[0] // "registry")]
+      | @tsv
+    ' <<<"${json}"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json, sys
+for tool in json.load(sys.stdin):
+    name = tool.get("short") or ""
+    if not name:
+        continue
+    backends = tool.get("backends") or ["registry"]
+    print(f"{name}\t{backends[0]}")
+' <<<"${json}"
+  else
+    return 0
+  fi | while IFS=$'\t' read -r name backend; do
+    [[ -n ${name} ]] || continue
+    kind=$(mise_backend_kind "${backend}")
+    tag="mise:${kind}"
+    format_package_row "${name}" "${tag}" "mise" "${tag}" "${name}"
+  done
+}
+
+list_available_packages() {
+  if command -v dnf >/dev/null 2>&1; then
+    { dnf repoquery -C --available --qf '%{name}|dnf:%{repoid}\n' --quiet 2>/dev/null ||
+      dnf repoquery -y --available --qf '%{name}|dnf:%{repoid}\n' --quiet 2>/dev/null ||
+      true; } |
+      awk -F '|' 'NF >= 2 && $1 != "" {
+        printf "%-42s [%-28s]\t%s\t%s\t%s\n", $1, $2, "dnf", $2, $1
+      }' || true
+  fi
+
+  if command -v flatpak >/dev/null 2>&1; then
+    local remote
+    while IFS= read -r remote; do
+      [[ -n ${remote} ]] || continue
+      flatpak remote-ls --app --columns=application,name "${remote}" 2>/dev/null |
+        awk -F '\t' -v rem="${remote}" 'NF >= 1 && $1 != "" {
+          display = ($2 != "" ? $2 " (" $1 ")" : $1)
+          tag = "flatpak:" rem
+          printf "%-42s [%-28s]\t%s\t%s\t%s\n", display, tag, "flatpak", rem, $1
+        }' || true
+    done < <(flatpak remotes --columns=name 2>/dev/null || true)
+  fi
+
+  if command -v mise >/dev/null 2>&1; then
+    local json
+    json=$(mise registry --json --hide-aliased 2>/dev/null || mise registry --json 2>/dev/null) || true
+    if [[ -n ${json} ]]; then
+      emit_mise_registry_rows "${json}" || true
+    fi
+  fi
+}
+
+fzf_args=(
+  --multi
+  --delimiter=$'\t'
+  --with-nth=1
+  --preview 'case {2} in
+    dnf) repo={3}; repo=${repo#dnf:}; dnf -C info --repo="${repo}" {4} 2>/dev/null || dnf -y info {4} 2>/dev/null ;;
+    flatpak) flatpak remote-info {3} {4} 2>/dev/null ;;
+    mise) mise tool {4} 2>/dev/null ;;
+  esac'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:green,marker:green'
+)
+
+selections=$(list_available_packages | fzf "${fzf_args[@]}") || exit 0
+[[ -n ${selections} ]] || exit 0
+
+dnf_pkgs=()
+mise_pkgs=()
+declare -A flatpak_by_remote=()
+
+while IFS=$'\t' read -r _display kind source_tag pkg_id; do
+  [[ -n ${pkg_id} ]] || continue
+  if [[ ${kind} == "dnf" ]]; then
+    dnf_pkgs+=("${pkg_id}")
+  elif [[ ${kind} == "flatpak" ]]; then
+    flatpak_by_remote["${source_tag}"]+="${flatpak_by_remote["${source_tag}"]:+ }${pkg_id}"
+  elif [[ ${kind} == "mise" ]]; then
+    mise_pkgs+=("${pkg_id}")
+  fi
+done <<<"${selections}"
+
+if (( ${#dnf_pkgs[@]} > 0 )); then
+  source nier-sudo-keepalive
+  sudo dnf install -y "${dnf_pkgs[@]}"
+fi
+
+for remote in "${!flatpak_by_remote[@]}"; do
+  read -r -a fp_ids <<<"${flatpak_by_remote["${remote}"]}"
+  if (( ${#fp_ids[@]} > 0 )); then
+    flatpak install -y "${remote}" "${fp_ids[@]}"
+  fi
+done
+
+if (( ${#mise_pkgs[@]} > 0 )); then
+  mise use -g -y "${mise_pkgs[@]}"
+fi
+
+update-desktop-database "${HOME}/.local/share/applications" &>/dev/null || true
+nier-show-done

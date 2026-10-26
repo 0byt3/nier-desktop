@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch a floating terminal with the Nier presentation wrapper
+# nier:args=<command>
+
+# Export the current theme's gum styling so gum widgets match the active theme
+# even after a theme switch (the inherited environment is captured at login).
+source nier-restart-gum
+
+cmd="$*"
+presentation_script="nier-show-logo; $cmd; if (( \$? != 130 )); then nier-show-done; fi"
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.nier.terminal --title=Nier -e bash -c "$presentation_script"

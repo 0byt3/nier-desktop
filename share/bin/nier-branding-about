@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Edit, set, or reset About branding
+# nier:group=branding
+# nier:name=about
+# nier:args=<image|text|reset>
+# nier:examples=nier branding about image | nier branding about text | nier branding about reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(nier-file-select --title "Pick PNG or SVG for About" --extensions "png svg")
+  if nier-transcode-ascii "$image" ~/.config/nier/branding/about.txt --width 54 --height 26; then
+    nier-launch-about >/dev/null 2>&1
+  fi
+  ;;
+text)
+  nier-launch-editor ~/.config/nier/branding/about.txt >/dev/null 2>&1 && nier-launch-about >/dev/null 2>&1
+  ;;
+reset)
+  cp "$NIER_PATH/icon.txt" ~/.config/nier/branding/about.txt && nier-launch-about >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: nier-branding-about <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

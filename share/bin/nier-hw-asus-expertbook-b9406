@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Detect ASUS ExpertBook B9406 series laptops on Intel Panther Lake.
+
+nier-hw-match "B9406" && nier-hw-intel-ptl

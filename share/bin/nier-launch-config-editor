@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Open a config file in the user's editor and surface a toast
+# nier:args=<path>
+# nier:examples=nier launch config-editor ~/.config/hypr/hyprland.lua
+
+path="${1-}"
+
+if [[ -z $path ]]; then
+  echo "Usage: nier-launch-config-editor <path>" >&2
+  exit 1
+fi
+
+nier-notification-send -u low "Editing config file" "$path"
+exec nier-launch-editor "$path"

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Launch the default coding agent with a prompt
+# nier:args=[--inline] <prompt...>
+# nier:examples=nier agent prompt "Review this project"
+
+# Prompts live here rather than on `nier agent`, where a bare prompt would
+# shadow the subcommands under that group.
+
+set -euo pipefail
+
+inline=()
+if [[ ${1:-} == "--inline" ]]; then
+  inline=(--inline)
+  shift
+fi
+
+if (($# == 0)); then
+  echo "Usage: nier agent prompt [--inline] <prompt...>" >&2
+  exit 1
+fi
+
+exec nier-agent "${inline[@]}" --prompt "$*"

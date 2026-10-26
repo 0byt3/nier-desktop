@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Print the active Nier dev-link git branch
+# nier:hidden=true
+
+nier_path=${NIER_PATH:-/usr/local/share/nier}
+nier_path=${nier_path%/}
+
+[[ $nier_path != "/usr/local/share/nier" ]] || exit 1
+
+branch=$(git -C "$nier_path" branch --show-current 2>/dev/null || true)
+if [[ -z $branch ]]; then
+  hash=$(git -C "$nier_path" rev-parse --short HEAD 2>/dev/null || true)
+  [[ -n $hash ]] || exit 1
+  branch="detached@$hash"
+fi
+
+echo "$branch"

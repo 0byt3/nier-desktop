@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Enable, disable, toggle, or recover the internal laptop display
+# nier:args=<on|off|toggle|recover>
+
+TOGGLE="internal-monitor-disable"
+TOGGLE_FLAG="$HOME/.local/state/nier/toggles/hypr/$TOGGLE.lua"
+MIRROR_TOGGLE="internal-monitor-mirror"
+
+INTERNAL=$(nier-hyprland-monitor-laptop)
+
+wake() {
+  hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })' >/dev/null 2>&1 || true
+}
+
+on() {
+  if nier-hyprland-toggle-enabled $TOGGLE; then
+    nier-hyprland-toggle $TOGGLE off
+    nier-notification-send -g 󰍹 "Laptop display enabled"
+  fi
+
+  wake
+}
+
+off() {
+  if [[ -z $INTERNAL ]]; then
+    nier-notification-send -g 󰍹 "No laptop display found"
+    exit 1
+  fi
+
+  # The name is written into generated Lua below, so only a plain connector
+  # name may pass; anything else could execute on the next reload.
+  if [[ ! $INTERNAL =~ ^[A-Za-z0-9._-]+$ ]]; then
+    nier-notification-send -g 󰍹 "Refusing unsafe monitor name"
+    exit 1
+  fi
+
+  if ! nier-hyprland-monitor-external-active; then
+    nier-notification-send -g 󰍹 "Can't disable the only active display"
+    exit 1
+  fi
+
+  if nier-hyprland-toggle-disabled $TOGGLE && nier-hyprland-toggle-disabled $MIRROR_TOGGLE; then
+    printf 'hl.monitor({ output = "%s", disabled = true })\n' "$INTERNAL" >"$TOGGLE_FLAG"
+    nier-notification-send -g 󰍹 "Laptop display disabled"
+    hyprctl reload
+  fi
+}
+
+recover() {
+  # Runs from the clamshell watcher every few seconds, so it must be a no-op
+  # unless it actually re-enables a display: an unconditional wake here undoes
+  # lock-screen blanking and races the resume modeset into a visible flash.
+  nier-hyprland-monitor-external-active && return 0
+  nier-hyprland-toggle-enabled $TOGGLE || return 0
+
+  nier-hyprland-toggle $TOGGLE off
+  wake
+}
+
+toggle() {
+  if nier-hyprland-toggle-enabled $TOGGLE; then
+    on
+  else
+    off
+  fi
+}
+
+case "$1" in
+  on) on ;;
+  off) off ;;
+  toggle) toggle ;;
+  recover) recover ;;
+  *)
+    echo "Usage: $(basename "$0") {on|off|toggle|recover}" >&2
+    exit 1
+    ;;
+esac

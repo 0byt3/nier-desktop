@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Reset shell.json to Nier defaults
+# nier:examples=nier refresh shell
+
+set -euo pipefail
+
+nier-refresh-config nier/shell.json
+nier-bar defaults
+
+nier-restart-shell

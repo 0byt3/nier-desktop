@@ -1,0 +1,36 @@
+# Credit: Adapted from Omarchy
+# Single source of truth for NIER_PATH + PATH adjustments. Sourced by:
+#   /etc/profile.d/nier.sh                 (system login shells)
+#   ~/.bashrc                              (interactive shells)
+#   /usr/share/uwsm/env.d/10-nier          (Hyprland session via uwsm)
+#   /usr/local/share/nier/default/bash/envs (bash rc chain; SSH/non-login)
+#
+# Packaged prefix:
+#   /usr/local/bin/nier                    (CLI dispatcher)
+#   /usr/local/share/nier                  (vendor Hyprland, Quickshell, helpers)
+
+if [ -f /etc/nier.conf ]; then
+  . /etc/nier.conf
+  : "${NIER_PATH:=/usr/local/share/nier}"
+else
+  NIER_PATH=/usr/local/share/nier
+fi
+export NIER_PATH
+
+case ":${PATH}:" in
+  *":${NIER_PATH%/}/bin:"*) ;;
+  *) PATH="${NIER_PATH%/}/bin${PATH:+:${PATH}}" ;;
+esac
+case ":${PATH}:" in
+  *":/usr/local/bin:"*) ;;
+  *) PATH="/usr/local/bin${PATH:+:${PATH}}" ;;
+esac
+case ":${PATH}:" in
+  *":${HOME}/.local/share/mise/shims:"*) ;;
+  *) PATH="${PATH:+${PATH}:}${HOME}/.local/share/mise/shims" ;;
+esac
+case ":${PATH}:" in
+  *":${HOME}/.local/bin:"*) ;;
+  *) PATH="${PATH:+${PATH}:}${HOME}/.local/bin" ;;
+esac
+export PATH

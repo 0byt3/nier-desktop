@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggle bar visibility without killing the Nier shell
+# nier:args=[toggle|on|off]
+# nier:examples=nier toggle bar | nier toggle bar off | nier toggle bar on
+
+nier-toggle bar-off "${1:-toggle}"
+
+# The shell's watch on the toggles directory can miss flag changes that land in
+# quick succession, stranding the bar off screen until the shell restarts.
+# Nudge the bar to re-read the flag; quiet best-effort so the toggle still
+# works when the shell is not up.
+nier-shell -q nier.bar syncHidden

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Ensure default application launchers and mise wrappers are installed.
+
+# Copy .desktop declarations
+mkdir -p ~/.local/share/applications
+cp "$NIER_PATH"/applications/*.desktop ~/.local/share/applications/
+
+if nier-cmd-present alacritty; then
+  cp "$NIER_PATH/default/alacritty/Alacritty.desktop" ~/.local/share/applications/
+fi
+
+if [[ -f "$NIER_PATH/install/user/mise.sh" ]]; then
+  bash "$NIER_PATH/install/user/mise.sh"
+fi
+
+update-desktop-database ~/.local/share/applications

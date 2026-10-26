@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Wake displays and restore brightness after idle
+# nier:group=system
+# nier:name=wake
+# nier:examples=nier system wake
+
+nier-brightness-display on
+nier-brightness-keyboard restore
+nier-hyprland-monitor-clamshell >/dev/null 2>&1 || true

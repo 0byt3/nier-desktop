@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nier.menu",
+  "name": "Nier menu",
+  "version": "1.0.0",
+  "author": "Nier",
+  "description": "Quickshell-powered Nier command menu",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Nier menu",
+    "description": "Launches the Nier menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

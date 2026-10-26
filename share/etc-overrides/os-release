@@ -1,0 +1,12 @@
+NAME="Nier"
+PRETTY_NAME="Nier"
+ID=nier
+ID_LIKE=arch
+BUILD_ID="4.0.6"
+VERSION_ID="4.0.6"
+ANSI_COLOR="38;2;158;206;106"
+HOME_URL="https://nier.org/"
+DOCUMENTATION_URL="https://learn.omacom.io/2/the-nier-manual"
+SUPPORT_URL="https://discord.gg/tXFUdasqhY"
+BUG_REPORT_URL="https://github.com/basecamp/nier/issues"
+LOGO=nier

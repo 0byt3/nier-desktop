@@ -1,0 +1,919 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Create or restore system snapshots with snapper
+# nier:args=<create|restore|sync> [snapshot-id]
+# nier:requires-sudo=true
+
+set -euo pipefail
+
+COMMAND="${1:-}"
+
+if [[ -z ${COMMAND} ]]; then
+  echo "Usage: nier-snapshot <create|restore|sync> [snapshot-id]" >&2
+  exit 1
+fi
+
+if ! command -v snapper >/dev/null && ! command -v nier-cmd-missing >/dev/null; then
+  exit 127
+fi
+if command -v nier-cmd-missing >/dev/null && nier-cmd-missing snapper; then
+  exit 127 # nier-update can use this to just ignore if snapper is not available
+fi
+
+NIER_PATH=${NIER_PATH:-/usr/local/share/nier}
+# shellcheck source=/usr/local/share/nier/lib/nier-btrfs.sh
+source "${NIER_PATH}/lib/nier-btrfs.sh"
+
+warn() {
+  printf '%s\n' "$*" >&2
+}
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+snapper_cmd() {
+  if [[ ${EUID} -eq 0 ]]; then
+    snapper "$@"
+  else
+    sudo snapper "$@"
+  fi
+}
+
+as_root() {
+  if [[ ${EUID} -eq 0 ]]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+require_btrfs_root() {
+  if nier_is_btrfs /; then
+    return 0
+  fi
+  nier_warn_not_btrfs "snapshot"
+  exit 0
+}
+
+list_snapper_configs() {
+  snapper_cmd --csvout list-configs | awk -F, 'NR>1 {print $1}'
+}
+
+config_exists() {
+  local wanted=$1
+  local name
+  while IFS= read -r name; do
+    [[ ${name} == "${wanted}" ]] && return 0
+  done < <(list_snapper_configs)
+  return 1
+}
+
+snapshot_subvol_path() {
+  local mountpoint=$1
+  local snapshot_id=$2
+  local base
+  base=$(nier_btrfs_subvol_name "${mountpoint}")
+  [[ -n ${base} ]] || return 1
+  printf '%s/.snapshots/%s/snapshot' "${base}" "${snapshot_id}"
+}
+
+rootflags_with_subvol() {
+  local options=$1
+  local subvol=$2
+  local token flags="" other="" part newflags="" sep=""
+
+  for token in ${options}; do
+    case "${token}" in
+      rootflags=*)
+        flags=${token#rootflags=}
+        ;;
+      nier.varsubvol=*)
+        ;;
+      *)
+        other+="${token} "
+        ;;
+    esac
+  done
+
+  local IFS=,
+  for part in ${flags}; do
+    case "${part}" in
+      subvol=*)
+        part="subvol=${subvol}"
+        ;;
+    esac
+    newflags+="${sep}${part}"
+    sep=,
+  done
+  [[ -n ${newflags} ]] || newflags="subvol=${subvol}"
+  printf '%srootflags=%s' "${other}" "${newflags}"
+}
+
+default_kernel_info() {
+  as_root grubby --info=DEFAULT
+}
+
+info_field() {
+  local block=$1
+  local key=$2
+  local line value
+  while IFS= read -r line; do
+    if [[ ${line} == "${key}="* ]]; then
+      value=${line#"${key}"=}
+      value=${value#\"}
+      value=${value%\"}
+      printf '%s' "${value}"
+      return 0
+    fi
+  done <<<"${block}"
+  return 1
+}
+
+default_kernel_kver() {
+  local info kernel
+  info=$(default_kernel_info) || return 1
+  kernel=$(info_field "${info}" kernel) || return 1
+  kernel=${kernel##*/}
+  [[ ${kernel} == vmlinuz-* ]] || return 1
+  printf '%s' "${kernel#vmlinuz-}"
+}
+
+kernel_files_present() {
+  local kver=$1
+  [[ -e /boot/vmlinuz-${kver} && -e /boot/initramfs-${kver}.img ]]
+}
+
+read_file() {
+  local file=$1
+  if [[ -r ${file} ]]; then
+    cat -- "${file}"
+  else
+    as_root cat -- "${file}"
+  fi
+}
+
+xml_userdata() {
+  local file=$1
+  local key=$2
+  [[ -e ${file} ]] || return 1
+  read_file "${file}" | awk -v want="${key}" '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    /<key>/ {
+      found = $0
+      sub(/.*<key>/, "", found)
+      sub(/<\/key>.*/, "", found)
+      found = trim(found)
+      if (found == want) {
+        getline
+        value = $0
+        sub(/.*<value>/, "", value)
+        sub(/<\/value>.*/, "", value)
+        print trim(value)
+        exit
+      }
+    }
+  '
+}
+
+xml_text() {
+  local file=$1
+  local tag=$2
+  [[ -e ${file} ]] || return 1
+  read_file "${file}" | awk -v tag="${tag}" '
+    $0 ~ "<" tag ">" {
+      sub(".*<" tag ">", "")
+      sub("</" tag ">.*", "")
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      print
+      exit
+    }
+  '
+}
+
+add_xml_userdata() {
+  local file=$1
+  local key=$2
+  local value=$3
+  local tmp current
+
+  [[ -e ${file} ]] || return 1
+  current=$(xml_userdata "${file}" "${key}" || true)
+  [[ -z ${current} ]] || return 0
+  tmp=$(mktemp)
+  read_file "${file}" | awk -v key="${key}" -v value="${value}" '
+    /<\/snapshot>/ && !inserted {
+      print "  <userdata>"
+      print "    <key>" key "</key>"
+      print "    <value>" value "</value>"
+      print "  </userdata>"
+      inserted = 1
+    }
+    { print }
+  ' >"${tmp}"
+  as_root cp "${tmp}" "${file}"
+  rm -f "${tmp}"
+}
+
+write_backup_info() {
+  local file=$1
+  local num=$2
+  local desc=$3
+  local pair=$4
+  local kver=${5:-}
+  local date tmp
+
+  date=$(date -u '+%Y-%m-%d %H:%M:%S')
+  tmp=$(mktemp)
+  cat >"${tmp}" <<EOF
+<?xml version="1.0"?>
+<snapshot>
+  <type>single</type>
+  <num>${num}</num>
+  <date>${date}</date>
+  <description>${desc}</description>
+  <cleanup>number</cleanup>
+  <userdata>
+    <key>nier_pair</key>
+    <value>${pair}</value>
+  </userdata>
+EOF
+  if [[ -n ${kver} ]]; then
+    cat >>"${tmp}" <<EOF
+  <userdata>
+    <key>nier_kver</key>
+    <value>${kver}</value>
+  </userdata>
+EOF
+  fi
+  printf '%s\n' '</snapshot>' >>"${tmp}"
+  as_root cp "${tmp}" "${file}"
+  rm -f "${tmp}"
+}
+
+snapshot_ids_in() {
+  local dir=$1
+  local name
+  [[ -d ${dir} ]] || return 0
+  while IFS= read -r name; do
+    [[ ${name} =~ ^[0-9]+$ ]] || continue
+    [[ -d ${dir}/${name}/snapshot ]] || continue
+    printf '%s\n' "${name}"
+  done < <(as_root find "${dir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+}
+
+next_snapshot_number() {
+  local dir=$1
+  local id max=0
+  while IFS= read -r id; do
+    (( id > max )) && max=${id}
+    : "${max}"
+  done < <(snapshot_ids_in "${dir}")
+  printf '%s' "$((max + 1))"
+}
+
+var_id_for_pair_in() {
+  local dir=$1
+  local pair=$2
+  local id found
+  [[ -n ${pair} && -d ${dir} ]] || return 1
+  while IFS= read -r id; do
+    found=$(xml_userdata "${dir}/${id}/info.xml" nier_pair || true)
+    if [[ ${found} == "${pair}" ]]; then
+      printf '%s' "${id}"
+      return 0
+    fi
+  done < <(snapshot_ids_in "${dir}")
+  return 1
+}
+
+newest_bootable_kver() {
+  local modules=$1
+  local ver found=""
+  as_root test -d "${modules}" || return 1
+  while IFS= read -r ver; do
+    kernel_files_present "${ver}" || continue
+    found=${ver}
+  done < <(as_root find "${modules}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V)
+  [[ -n ${found} ]] || return 1
+  printf '%s' "${found}"
+}
+
+snapshot_kver() {
+  local info=$1
+  local modules=$2
+  local kver
+  kver=$(xml_userdata "${info}" nier_kver || true)
+  if [[ -z ${kver} ]]; then
+    kver=$(newest_bootable_kver "${modules}" || true)
+    if [[ -n ${kver} ]]; then
+      add_xml_userdata "${info}" nier_kver "${kver}" || true
+    fi
+  fi
+  [[ -n ${kver} ]] || return 1
+  printf '%s' "${kver}"
+}
+
+write_snapshot_bls() {
+  local root_id=$1
+  local root_subvol=$2
+  local var_subvol=$3
+  local desc=$4
+  local kver=${5:-}
+  local info args root_dev options dest title_suffix
+
+  command -v grubby >/dev/null || return 0
+  [[ -d /boot/loader/entries ]] || return 0
+
+  info=$(default_kernel_info) || return 0
+  args=$(info_field "${info}" args)
+  root_dev=$(info_field "${info}" root)
+  if [[ -z ${kver} ]]; then
+    kver=$(default_kernel_kver || true)
+  fi
+  if [[ -z ${kver} ]] || ! kernel_files_present "${kver}"; then
+    warn "snapshot ${root_id}: kernel ${kver:-unknown} is not in /boot; boot entry skipped"
+    return 0
+  fi
+
+  options=$(rootflags_with_subvol "${args}" "${root_subvol}")
+  if [[ -n ${var_subvol} ]]; then
+    options+=" nier.varsubvol=${var_subvol}"
+  fi
+  if [[ ${options} != *root=* ]]; then
+    options="root=${root_dev} ${options}"
+  fi
+
+  title_suffix=""
+  if [[ -n ${desc} ]]; then
+    title_suffix=" — ${desc}"
+  fi
+  dest="/boot/loader/entries/nier-snapshot-${root_id}.conf"
+  as_root tee "${dest}" >/dev/null <<EOF
+title Fedora Linux (${kver}) (Nier snapshot ${root_id}${title_suffix})
+version ${kver}+nier-snapshot-${root_id}
+linux /vmlinuz-${kver}
+initrd /initramfs-${kver}.img
+options ${options}
+grub_users \$grub_users
+grub_arg --unrestricted
+grub_class fedora
+EOF
+}
+
+prune_snapshot_bls() {
+  local keep=$1
+  local file id
+
+  [[ -d /boot/loader/entries ]] || return 0
+  while IFS= read -r file; do
+    id=${file##*/nier-snapshot-}
+    id=${id%.conf}
+    if [[ " ${keep} " != *" ${id} "* ]]; then
+      as_root rm -f "${file}"
+    fi
+  done < <(as_root find /boot/loader/entries -maxdepth 1 -name 'nier-snapshot-*.conf' -print)
+}
+
+sync_entries_in() {
+  local snapdir=$1
+  local root_name=$2
+  local var_snapdir=${3:-}
+  local var_name=${4:-}
+  local keep="" id info kver pair root_pair var_pair var_id var_subvol root_subvol desc
+
+  command -v grubby >/dev/null || return 0
+  [[ -d /boot/loader/entries ]] || return 0
+  [[ -d ${snapdir} ]] || return 0
+
+  while IFS= read -r id; do
+    keep+=" ${id}"
+  done < <(snapshot_ids_in "${snapdir}")
+  prune_snapshot_bls "${keep}"
+
+  while IFS= read -r id; do
+    info="${snapdir}/${id}/info.xml"
+    root_subvol="${root_name}/.snapshots/${id}/snapshot"
+    kver=$(snapshot_kver "${info}" "${snapdir}/${id}/snapshot/usr/lib/modules" || true)
+    var_subvol=""
+    if [[ -n ${var_name} && -d ${var_snapdir} ]]; then
+      pair=$(xml_userdata "${info}" nier_pair || true)
+      var_id=$(var_id_for_pair_in "${var_snapdir}" "${pair}" || true)
+      if [[ -z ${var_id} && -d ${var_snapdir}/${id}/snapshot ]]; then
+        root_pair=$(xml_userdata "${info}" nier_pair || true)
+        var_pair=$(xml_userdata "${var_snapdir}/${id}/info.xml" nier_pair || true)
+        if [[ -z ${root_pair} || -z ${var_pair} || ${var_pair} == "${root_pair}" ]]; then
+          var_id=${id}
+        fi
+      fi
+      if [[ -n ${var_id} ]]; then
+        var_subvol="${var_name}/.snapshots/${var_id}/snapshot"
+      fi
+    fi
+    desc=$(xml_text "${info}" description || true)
+    write_snapshot_bls "${id}" "${root_subvol}" "${var_subvol}" "${desc}" "${kver}"
+  done < <(snapshot_ids_in "${snapdir}")
+
+  if command -v grub2-editenv >/dev/null; then
+    as_root grub2-editenv - unset menu_auto_hide || true
+  fi
+}
+
+sync_snapshot_boot_entries() {
+  local root_name var_name="" var_dir=""
+
+  require_btrfs_root
+  config_exists root || return 0
+  root_name=$(nier_btrfs_subvol_name /)
+  if config_exists var && nier_var_is_separate_btrfs; then
+    var_name=$(nier_btrfs_subvol_name /var)
+    var_dir=/var/.snapshots
+  fi
+  sync_entries_in "/.snapshots" "${root_name}" "${var_dir}" "${var_name}"
+}
+
+create_snapshots() {
+  local desc pair kver="" root_userdata root_id="" var_id="" root_subvol var_subvol=""
+  local -a configs=()
+
+  require_btrfs_root
+
+  mapfile -t configs < <(list_snapper_configs)
+  if (( ${#configs[@]} == 0 )); then
+    echo -e "\e[33mNo Snapper configs found, so no snapshot was created.\e[0m" >&2
+    echo "Configure Snapper with: sudo nier apply --system" >&2
+    exit 1
+  fi
+
+  desc="$(nier-version 2>/dev/null || echo unknown)"
+  pair="$(date -u +%Y%m%dT%H%M%SZ)"
+  kver=$(default_kernel_kver || true)
+  root_userdata="nier_pair=${pair}"
+  if [[ -n ${kver} ]]; then
+    root_userdata+=",nier_kver=${kver}"
+  fi
+
+  echo -e "\e[32mCreate system snapshot\e[0m"
+
+  if config_exists root; then
+    root_id=$(snapper_cmd -c root create -p -c number -d "${desc}" -u "${root_userdata}")
+    snapper_cmd -c root cleanup number
+    echo "  root: snapshot ${root_id}"
+  fi
+
+  if config_exists var && nier_var_is_separate_btrfs; then
+    var_id=$(snapper_cmd -c var create -p -c number -d "${desc}" -u "nier_pair=${pair}")
+    snapper_cmd -c var cleanup number
+    echo "  var: snapshot ${var_id}"
+  fi
+
+  local config
+  for config in "${configs[@]}"; do
+    [[ ${config} == root || ${config} == var ]] && continue
+    snapper_cmd -c "${config}" create -c number -d "${desc}" -u "nier_pair=${pair}" >/dev/null
+    snapper_cmd -c "${config}" cleanup number
+    echo "  ${config}: snapshot created"
+  done
+
+  if [[ -n ${root_id} ]]; then
+    root_subvol=$(snapshot_subvol_path / "${root_id}")
+    if [[ -n ${var_id} ]]; then
+      var_subvol=$(snapshot_subvol_path /var "${var_id}") || true
+    fi
+    write_snapshot_bls "${root_id}" "${root_subvol}" "${var_subvol}" "${desc}" "${kver}"
+  fi
+  sync_snapshot_boot_entries
+  echo "Snapshots can be selected during boot."
+}
+
+nier_is_snapshot_path_name() {
+  local path=$1
+  [[ ${path} == */.snapshots/*/snapshot || ${path} == */.snapshots/*/snapshot/ ]]
+}
+
+current_cmdline_subvol() {
+  local flags part
+  flags=$(tr ' ' '\n' </proc/cmdline | awk -F= '/^rootflags=/{print substr($0,11)}')
+  local IFS=,
+  for part in ${flags}; do
+    case "${part}" in
+      subvol=*)
+        printf '%s' "${part#subvol=}"
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+current_cmdline_varsubvol() {
+  tr ' ' '\n' </proc/cmdline | awk -F= '/^nier.varsubvol=/{print substr($0,16); exit}'
+}
+
+snapshot_id_from_path() {
+  local path=$1
+  [[ ${path} =~ \.snapshots/([0-9]+)/snapshot/?$ ]] || return 1
+  printf '%s' "${BASH_REMATCH[1]}"
+}
+
+fstab_subvol() {
+  local file=$1
+  local mountpoint=$2
+  awk -v mp="${mountpoint}" '
+    $0 ~ /^[[:space:]]*#/ || $0 ~ /^[[:space:]]*$/ { next }
+    $2 == mp {
+      n = split($4, opts, ",")
+      for (i = 1; i <= n; i++) {
+        if (opts[i] ~ /^subvol=/) {
+          sub(/^subvol=/, "", opts[i])
+          print opts[i]
+          exit
+        }
+      }
+    }
+  ' "${file}"
+}
+
+mount_btrfs_toplevel() {
+  local dest=$1
+  local spec dev
+  spec=$(tr ' ' '\n' </proc/cmdline | awk -F= '/^root=/ { print substr($0, 6); exit }')
+  case ${spec} in
+    UUID=*)
+      dev="/dev/disk/by-uuid/${spec#UUID=}"
+      ;;
+    LABEL=*)
+      dev="/dev/disk/by-label/${spec#LABEL=}"
+      ;;
+    /dev/*)
+      dev=${spec}
+      ;;
+    *)
+      die "Cannot find the root device on the kernel command line."
+      ;;
+  esac
+  [[ -e ${dev} ]] || die "Root device ${dev} is missing."
+  mount -t btrfs -o subvolid=5 "${dev}" "${dest}"
+}
+
+subvol_is_mounted() {
+  local fs_path=$1
+  awk -v path="${fs_path}" '$4 == path { found = 1 } END { exit found ? 0 : 1 }' /proc/self/mountinfo
+}
+
+btrfs_subvol_id() {
+  btrfs subvolume show "$1" | awk -F: '/Subvolume ID/ { gsub(/[[:space:]]/, "", $2); print $2; exit }'
+}
+
+is_btrfs_subvolume() {
+  btrfs subvolume show "$1" >/dev/null 2>&1
+}
+
+is_empty_dir() {
+  local path=$1
+  [[ -d ${path} ]] || return 1
+  if is_btrfs_subvolume "${path}"; then
+    return 1
+  fi
+  [[ -z $(ls -A -- "${path}") ]]
+}
+
+find_root_snapshot() {
+  local top=$1
+  local id=$2
+  local path base fstab sub
+  while IFS= read -r path; do
+    [[ ${path} == */.snapshots/${id}/snapshot ]] || continue
+    fstab="${top}/${path}/etc/fstab"
+    [[ -f ${fstab} ]] || continue
+    base=${path%%/.snapshots/*}
+    sub=$(fstab_subvol "${fstab}" / || true)
+    if [[ ${sub} == "${base}" ]]; then
+      printf '%s' "${path}"
+      return 0
+    fi
+  done < <(btrfs subvolume list "${top}" | sed -n 's/.* path //p')
+  return 1
+}
+
+direct_child_rels() {
+  local fs_prefix=$1
+  local src=$2
+  local src_id line top path rel
+  src_id=$(btrfs_subvol_id "${src}")
+  [[ -n ${src_id} ]] || return 1
+  while IFS= read -r line; do
+    [[ ${line} == *" path "* ]] || continue
+    top=$(printf '%s\n' "${line}" | sed -n 's/.* top level \([0-9][0-9]*\) path.*/\1/p')
+    [[ ${top} == "${src_id}" ]] || continue
+    path=${line##* path }
+    rel=${path#"${fs_prefix}/"}
+    printf '%s\n' "${rel}"
+  done < <(btrfs subvolume list -o "${src}")
+}
+
+move_child_subvol() {
+  local src=$1
+  local dest=$2
+  if [[ -e ${dest} ]]; then
+    is_empty_dir "${dest}" || return 1
+    rmdir -- "${dest}"
+  else
+    mkdir -p -- "$(dirname "${dest}")"
+  fi
+  mv -- "${src}" "${dest}"
+}
+
+undo_swap() {
+  local top=$1
+  local name=$2
+  local backup_num=$3
+  shift 3
+  local -a rels=("$@")
+  local live="${top}/${name}"
+  local hold="${top}/${name}.nier-undo.$$"
+  local rel backup
+
+  backup="${live}/.snapshots/${backup_num}/snapshot"
+  [[ -d ${backup} ]] || return 1
+  btrfs property set "${backup}" ro false >/dev/null 2>&1 || true
+  mv -- "${live}" "${hold}"
+  mv -- "${hold}/.snapshots/${backup_num}/snapshot" "${live}"
+  for rel in "${rels[@]}"; do
+    [[ ${rel} == .snapshots ]] && continue
+    [[ -e ${hold}/${rel} ]] || continue
+    mkdir -p -- "$(dirname "${live}/${rel}")"
+    mv -- "${hold}/${rel}" "${live}/${rel}"
+  done
+  if [[ -d ${hold}/.snapshots ]]; then
+    mv -- "${hold}/.snapshots" "${live}/.snapshots"
+  fi
+  btrfs subvolume delete "${hold}" >/dev/null
+  rmdir -- "${live}/.snapshots/${backup_num}" 2>/dev/null || true
+}
+
+# Replace the live subvolume with a writable snapshot of source_rel.
+# Prints the backup snapshot number. On failure the live name is restored.
+swap_one() {
+  local top=$1
+  local name=$2
+  local source_rel=$3
+  local live="${top}/${name}"
+  local src="${top}/${source_rel}"
+  local new="${top}/${name}.nier-new.$$"
+  local backup_num rel
+  local -a rels=()
+
+  [[ -d ${src} ]] || die "Snapshot subvolume ${source_rel} is missing."
+  [[ -d ${live}/.snapshots ]] || die "${name}/.snapshots is missing."
+  is_btrfs_subvolume "${live}/.snapshots" || die "${name}/.snapshots is not a subvolume."
+  if subvol_is_mounted "/${name}"; then
+    die "/${name} is the mounted subvolume. Boot the snapshot, then run nier-snapshot restore."
+  fi
+
+  btrfs subvolume snapshot "${src}" "${new}" >/dev/null
+  while IFS= read -r rel; do
+    [[ -n ${rel} ]] || continue
+    rels+=("${rel}")
+  done < <(direct_child_rels "${name}" "${live}")
+  local rel_ok=0
+  for rel in "${rels[@]}"; do
+    [[ ${rel} == .snapshots ]] && rel_ok=1
+  done
+  if [[ ${rel_ok} -ne 1 ]]; then
+    btrfs subvolume delete "${new}" >/dev/null || true
+    die "${name} has no .snapshots subvolume to preserve."
+  fi
+
+  local moved=0
+  for rel in "${rels[@]}"; do
+    if ! move_child_subvol "${live}/${rel}" "${new}/${rel}"; then
+      undo_moved_children "${live}" "${new}" "${moved}" "${rels[@]}"
+      btrfs subvolume delete "${new}" >/dev/null || true
+      die "Could not move ${name}/${rel} onto the restored subvolume."
+    fi
+    moved=$((moved + 1))
+  done
+
+  backup_num=$(next_snapshot_number "${new}/.snapshots")
+  mkdir -p -- "${new}/.snapshots/${backup_num}"
+  if ! mv -- "${live}" "${new}/.snapshots/${backup_num}/snapshot"; then
+    undo_moved_children "${live}" "${new}" "${#rels[@]}" "${rels[@]}"
+    btrfs subvolume delete "${new}" >/dev/null || true
+    die "Could not move ${name} aside."
+  fi
+  if ! mv -- "${new}" "${live}"; then
+    mv -- "${new}/.snapshots/${backup_num}/snapshot" "${live}" || true
+    undo_moved_children "${live}" "${new}" "${#rels[@]}" "${rels[@]}"
+    btrfs subvolume delete "${new}" >/dev/null || true
+    die "Could not put the restored subvolume in place of ${name}."
+  fi
+  btrfs property set "${live}/.snapshots/${backup_num}/snapshot" ro true >/dev/null \
+    || warn "Could not mark the previous ${name} subvolume read-only."
+  printf '%s' "${backup_num}"
+}
+
+undo_moved_children() {
+  local live=$1
+  local new=$2
+  local count=$3
+  shift 3
+  local -a rels=("$@")
+  local i rel
+  for ((i = count - 1; i >= 0; i--)); do
+    rel=${rels[i]}
+    [[ -e ${new}/${rel} ]] || continue
+    mkdir -p -- "$(dirname "${live}/${rel}")"
+    mv -- "${new}/${rel}" "${live}/${rel}" || true
+  done
+}
+
+normalize_cmdline_file() {
+  local file=$1
+  local subvol=$2
+  local line
+  [[ -f ${file} ]] || return 0
+  line=$(tr '\n' ' ' <"${file}")
+  line=$(rootflags_with_subvol "${line}" "${subvol}")
+  printf '%s\n' "${line}" >"${file}"
+}
+
+install_default_boot() {
+  local kver=$1
+  local root_name=$2
+  local mid entry options new_options tmp src info id
+  mid=$(cat /etc/machine-id)
+  entry="/boot/loader/entries/${mid}-${kver}.conf"
+  kernel_files_present "${kver}" || die "Kernel ${kver} is not in /boot, so the restored system cannot boot."
+  if [[ ! -f ${entry} ]]; then
+    info=$(default_kernel_info) || die "Cannot read the default GRUB entry."
+    id=$(info_field "${info}" id) || die "The default GRUB entry has no id."
+    src="/boot/loader/entries/${id}.conf"
+    [[ -f ${src} ]] || die "Cannot find a Fedora boot entry to use for kernel ${kver}."
+    cp -- "${src}" "${entry}"
+  fi
+  options=$(awk '/^options / { sub(/^options /, ""); print; exit }' "${entry}")
+  new_options=$(rootflags_with_subvol "${options}" "${root_name}")
+  tmp=$(mktemp)
+  awk -v kver="${kver}" -v options="${new_options}" '
+    /^title / {
+      suffix = ""
+      if (match($0, /\) .*/)) {
+        suffix = substr($0, RSTART + 1)
+      }
+      print "title Fedora Linux (" kver ")" suffix
+      next
+    }
+    /^version / { print "version " kver; next }
+    /^linux / { print "linux /vmlinuz-" kver; next }
+    /^initrd / { print "initrd /initramfs-" kver ".img"; next }
+    /^options / { print "options " options; next }
+    { print }
+  ' "${entry}" >"${tmp}"
+  cp -- "${tmp}" "${entry}"
+  rm -f "${tmp}"
+  grub2-editenv - set "saved_entry=${mid}-${kver}"
+  grub2-editenv - unset menu_auto_hide || true
+}
+
+restore_fedora() {
+  local requested=${1:-}
+  local top="" root_id="" root_rel="" root_name="" root_info="" root_fstab=""
+  local var_name="" var_id="" var_rel="" pair="" kver="" backup_kver="" backup_pair=""
+  local root_backup="" var_backup=""
+  local rel
+  local -a root_rels=() var_rels=()
+
+  top=$(mktemp -d /run/nier-restore.XXXXXX)
+  NIER_RESTORE_MOUNT=${top}
+  trap 'if [[ -n ${NIER_RESTORE_MOUNT:-} ]] && mountpoint -q "${NIER_RESTORE_MOUNT}"; then umount "${NIER_RESTORE_MOUNT}" || true; rmdir "${NIER_RESTORE_MOUNT}" || true; fi' EXIT
+  mount_btrfs_toplevel "${top}"
+
+  if [[ -n ${requested} ]]; then
+    [[ ${requested} =~ ^[0-9]+$ ]] || die "Snapshot id must be a number."
+    root_id=${requested}
+  else
+    root_rel=$(current_cmdline_subvol) || die "Not booted from a Nier snapshot; pass a snapshot id: nier-snapshot restore <id>"
+    nier_is_snapshot_path_name "${root_rel}" || die "Current root is not a Snapper snapshot; pass a snapshot id: nier-snapshot restore <id>"
+    root_id=$(snapshot_id_from_path "${root_rel}") || die "Cannot read the booted snapshot id."
+  fi
+
+  if [[ -z ${root_rel} || ! -d ${top}/${root_rel} ]]; then
+    root_rel=$(find_root_snapshot "${top}" "${root_id}") || die "Root snapshot ${root_id} was not found."
+  fi
+  root_name=${root_rel%%/.snapshots/*}
+  root_info="${top}/$(dirname "${root_rel}")/info.xml"
+  root_fstab="${top}/${root_rel}/etc/fstab"
+  [[ -f ${root_info} ]] || die "Snapshot ${root_id} has no info.xml."
+  [[ -f ${root_fstab} ]] || die "Snapshot ${root_id} has no /etc/fstab."
+
+  kver=$(snapshot_kver "${root_info}" "${top}/${root_rel}/usr/lib/modules") || die "Snapshot ${root_id} has no kernel that is still in /boot."
+  kernel_files_present "${kver}" || die "Kernel ${kver} from snapshot ${root_id} is not in /boot."
+  backup_kver=$(default_kernel_kver || true)
+  [[ -n ${backup_kver} ]] || backup_kver=${kver}
+  pair=$(xml_userdata "${root_info}" nier_pair || true)
+  backup_pair="$(date -u +%Y%m%dT%H%M%SZ)"
+
+  var_name=$(fstab_subvol "${root_fstab}" /var || true)
+  if [[ -n ${var_name} && ${var_name} != "${root_name}" && -d ${top}/${var_name}/.snapshots ]]; then
+    if [[ $(snapshot_id_from_path "$(current_cmdline_subvol || true)" || true) == "${root_id}" ]]; then
+      var_rel=$(current_cmdline_varsubvol || true)
+      if [[ -n ${var_rel} && -d ${top}/${var_rel} ]]; then
+        var_id=$(snapshot_id_from_path "${var_rel}" || true)
+      fi
+    fi
+    if [[ -z ${var_id} ]]; then
+      var_id=$(var_id_for_pair_in "${top}/${var_name}/.snapshots" "${pair}" || true)
+    fi
+    [[ -n ${var_id} ]] || die "No /var snapshot is paired with root snapshot ${root_id}."
+    var_rel="${var_name}/.snapshots/${var_id}/snapshot"
+    [[ -d ${top}/${var_rel} ]] || die "Var snapshot ${var_rel} is missing."
+  else
+    var_name=""
+  fi
+
+  while IFS= read -r rel; do
+    [[ -n ${rel} ]] || continue
+    root_rels+=("${rel}")
+  done < <(direct_child_rels "${root_name}" "${top}/${root_name}")
+  root_backup=$(swap_one "${top}" "${root_name}" "${root_rel}")
+
+  if [[ -n ${var_name} ]]; then
+    while IFS= read -r rel; do
+      [[ -n ${rel} ]] || continue
+      var_rels+=("${rel}")
+    done < <(direct_child_rels "${var_name}" "${top}/${var_name}")
+    if ! var_backup=$(swap_one "${top}" "${var_name}" "${var_rel}"); then
+      undo_swap "${top}" "${root_name}" "${root_backup}" "${root_rels[@]}" || true
+      die "Restoring /var failed. The previous root subvolume was put back."
+    fi
+  fi
+
+  write_backup_info "${top}/${root_name}/.snapshots/${root_backup}/info.xml" \
+    "${root_backup}" "backup before restore" "${backup_pair}" "${backup_kver}"
+  if [[ -n ${var_backup} ]]; then
+    write_backup_info "${top}/${var_name}/.snapshots/${var_backup}/info.xml" \
+      "${var_backup}" "backup before restore" "${backup_pair}" ""
+  fi
+
+  normalize_cmdline_file "${top}/${root_name}/etc/kernel/cmdline" "${root_name}"
+  sync_entries_in "${top}/${root_name}/.snapshots" "${root_name}" \
+    "${var_name:+${top}/${var_name}/.snapshots}" "${var_name}"
+  install_default_boot "${kver}" "${root_name}"
+
+  echo "Restored snapshot ${root_id} into ${root_name}${var_name:+ and ${var_name}}."
+  echo "Default kernel is ${kver}."
+  if [[ -n ${var_backup} ]]; then
+    echo "Previous ${root_name} is snapshot ${root_backup}; previous ${var_name} is snapshot ${var_backup}."
+  else
+    echo "Previous ${root_name} is snapshot ${root_backup}."
+  fi
+  echo "Reboot to start the restored system."
+}
+
+restore_snapshots() {
+  local requested=${1:-}
+
+  if [[ ${EUID} -ne 0 ]]; then
+    if [[ -n ${requested} ]]; then
+      exec sudo -- "$0" restore "${requested}"
+    fi
+    exec sudo -- "$0" restore
+  fi
+
+  # A snapshot boot mounts / as overlay. Restore mounts the filesystem top
+  # level itself and swaps subvolumes there.
+  if [[ -d /boot/loader/entries ]]; then
+    restore_fedora "${requested}"
+    return
+  fi
+  if command -v limine-snapper-restore >/dev/null && [[ -f /boot/limine.conf ]]; then
+    limine-snapper-restore
+    return
+  fi
+  die "No GRUB boot entries found."
+}
+
+case "${COMMAND}" in
+  create)
+    create_snapshots
+    ;;
+  restore)
+    restore_snapshots "${2:-}"
+    ;;
+  sync)
+    require_btrfs_root
+    sync_snapshot_boot_entries
+    ;;
+  *)
+    echo "Usage: nier-snapshot <create|restore|sync> [snapshot-id]" >&2
+    exit 1
+    ;;
+esac

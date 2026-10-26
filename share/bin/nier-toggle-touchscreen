@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Enable, disable, or toggle the touch functionality of the screen
+# nier:args=[on|off|toggle]
+
+exec nier-toggle-input-device touchscreen "${1:-toggle}"

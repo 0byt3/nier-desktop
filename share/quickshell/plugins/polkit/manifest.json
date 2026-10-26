@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "nier.polkit",
+  "name": "Polkit Agent",
+  "version": "1.0.0",
+  "author": "Nier",
+  "description": "Theme-aware authentication dialog for privileged actions.",
+  "nier": {
+    "capabilities": [
+      "authentication"
+    ]
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "PolkitAgent.qml"
+  }
+}

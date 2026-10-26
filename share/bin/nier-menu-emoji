@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+# nier:summary=Launch emojis
+# nier:group=menu
+# nier:examples=nier menu emoji
+
+nier-shell shell toggle nier.emojis

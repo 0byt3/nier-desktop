@@ -1,0 +1,7 @@
+: "${NIER_PATH:=/usr/local/share/nier}"
+source "$NIER_PATH/default/bash/envs"
+source "$NIER_PATH/default/bash/shell"
+source "$NIER_PATH/default/bash/aliases"
+source "$NIER_PATH/default/bash/functions"
+source "$NIER_PATH/default/bash/init"
+[[ $- == *i* ]] && bind -f "$NIER_PATH/default/bash/inputrc"

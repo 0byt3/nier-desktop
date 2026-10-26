@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggle screensaver availability
+
+nier-toggle screensaver-off
+
+if nier-toggle-enabled screensaver-off; then
+  nier-notification-send -g 󱄄 "Screensaver disabled"
+else
+  nier-notification-send -g 󱄄 "Screensaver enabled"
+fi

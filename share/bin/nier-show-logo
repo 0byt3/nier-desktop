@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Display the Nier Fedora logo in the terminal using blue color.
+
+clear
+echo -e "\033[34m"
+cat <"$NIER_PATH/logo.txt"
+echo -e "\033[0m"
+echo

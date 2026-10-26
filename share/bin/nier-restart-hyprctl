@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Reload hyprland configuration (used by the Nier theme switching).
+
+hyprctl reload >/dev/null

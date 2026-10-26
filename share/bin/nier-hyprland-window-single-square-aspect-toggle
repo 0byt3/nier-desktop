@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Credit: Adapted from Omarchy
+
+# nier:summary=Toggle single-window square aspect ratio.
+
+case $(nier-hyprland-toggle single-window-aspect-ratio) in
+  on) nier-notification-send -g  "Enable single-window square aspect ratio" ;;
+  off) nier-notification-send -g  "Disable single-window square aspect ratio" ;;
+esac
