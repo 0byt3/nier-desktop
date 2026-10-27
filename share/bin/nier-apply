@@ -428,15 +428,15 @@ EOF
   install_file "${share}/default/xdg-terminal-exec/hyprland-xdg-terminals.list" /usr/share/xdg-terminal-exec/hyprland-xdg-terminals.list 0644
   install_file "${share}/etc-overrides/fastfetch-config.jsonc" /etc/fastfetch/config.jsonc 0644
 
-  if [[ -f ${share}/default/fonts/omarchy/omarchy.ttf ]]; then
-    install_file "${share}/default/fonts/omarchy/omarchy.ttf" /usr/share/fonts/omarchy/omarchy.ttf 0644
+  if [[ -f ${share}/default/fonts/nier/nier.ttf ]]; then
+    install_file "${share}/default/fonts/nier/nier.ttf" /usr/share/fonts/nier/nier.ttf 0644
   fi
   if [[ -d ${share}/fonts/TTF ]]; then
     mkdir -p /usr/share/fonts/TTF
     cp -a "${share}/fonts/TTF/." /usr/share/fonts/TTF/
   fi
-  if [[ -f ${share}/default/fontconfig/conf.avail/50-omarchy.conf ]]; then
-    install_file "${share}/default/fontconfig/conf.avail/50-omarchy.conf" /usr/share/fontconfig/conf.avail/50-nier.conf 0644
+  if [[ -f ${share}/default/fontconfig/conf.avail/50-nier.conf ]]; then
+    install_file "${share}/default/fontconfig/conf.avail/50-nier.conf" /usr/share/fontconfig/conf.avail/50-nier.conf 0644
     ln -sfn /usr/share/fontconfig/conf.avail/50-nier.conf /etc/fonts/conf.d/50-nier.conf
   fi
 

@@ -1,4 +1,4 @@
-//@ pragma OmarchyLoadPatch
+//@ pragma NierLoadPatch
 // Credit: Adapted from Omarchy
 import QtQuick
 import QtQml.Models
