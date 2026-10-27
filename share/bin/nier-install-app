@@ -4,7 +4,7 @@
 
 # nier:summary=Install a packaged app, surfacing the install in a floating terminal
 # nier:args=<display-name> <packages>
-# nier:examples=nier install app 'LM Studio' lmstudio-bin
+# nier:examples=nier install app 'VLC' vlc
 
 name="${1-}"
 packages="${2-}"

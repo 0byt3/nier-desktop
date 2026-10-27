@@ -1,13 +1,7 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Install Zed Editor and configure it with the current Nier theme
-
-echo "Installing Zed Editor..."
-nier-pkg-add zed omazed
-
-# Apply Nier theme to Zed
-omazed setup
-
-setsid uwsm-app -- gtk-launch dev.zed.Zed >/dev/null 2>&1 &
+# nier:summary=Install and launch Zed through Flatpak
+set -euo pipefail
+nier-flatpak-app install dev.zed.Zed
+setsid uwsm-app -- flatpak run dev.zed.Zed >/dev/null 2>&1 &

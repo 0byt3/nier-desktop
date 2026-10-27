@@ -2,9 +2,9 @@
 
 # Credit: Adapted from Omarchy
 
-# nier:summary=Install a Nerd Font package and switch the system to it
+# nier:summary=Install a Fedora font package and switch the system to it
 # nier:args=<display-name> <package> <family>
-# nier:examples=nier install font 'Cascadia Mono' ttf-cascadia-mono-nerd 'CaskaydiaMono Nerd Font'
+# nier:examples=nier install font 'JetBrains Mono' jetbrains-mono-fonts 'JetBrains Mono'
 
 name="${1-}"
 package="${2-}"

@@ -17,8 +17,8 @@ if nier-hw-surface; then
     echo "Failed to autodetect pinctrl module."
   else
     echo "Detected pinctrl module: $pinctrl_module"
-    mkdir -p /etc/mkinitcpio.conf.d
-    echo "MODULES=(${pinctrl_module} surface_aggregator surface_aggregator_registry surface_aggregator_hub surface_hid_core surface_hid surface_kbd intel_lpss_pci 8250_dw)" > \
-      /etc/mkinitcpio.conf.d/surface_device_modules.conf
+    mkdir -p /etc/dracut.conf.d
+    echo "add_drivers+=\" ${pinctrl_module//$'\n'/ } surface_aggregator surface_aggregator_registry surface_aggregator_hub surface_hid_core surface_hid surface_kbd intel_lpss_pci 8250_dw \"" > \
+      /etc/dracut.conf.d/nier-surface.conf
   fi
 fi

@@ -1,139 +1,51 @@
 #!/bin/bash
-
 # Credit: Adapted from Omarchy
-
-# nier:summary=Build and install an Nier package from a local checkout
+# nier:summary=Build and install a development RPM from a local Nier Desktop checkout
 # nier:group=dev
-# nier:args=[package-name] [path-to-checkout]
-# nier:examples=nier dev pkg-test | nier dev pkg-test nier-dev ~/Work/nier/nier-installer
-
+# nier:args=[spec-file] [path-to-checkout]
+# nier:requires-sudo=true
 set -euo pipefail
-
-if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
-  cat <<USAGE
-Usage: nier dev pkg-test [package-name] [path-to-checkout]
-
-Builds and installs an Nier package from a local Nier source
-checkout. Use when changes need to land at fixed system paths (/etc/,
-/usr/lib/systemd/, udev rule bodies, plymouth) that nier-dev-link
-can't shadow.
-
-Defaults:
-  packages          nier-settings-dev nier-dev
-  path-to-checkout  ~/Work/nier/nier-installer
-
-Examples:
-  nier dev pkg-test
-  nier dev pkg-test nier-settings-dev
-  nier dev pkg-test nier-dev ~/Work/nier/nier-installer
-
-The pkgver of the built package is tagged 'dev.<short-sha>[.dirty]' so
-'pacman -Q' makes it obvious where the installed version came from.
-
-PKGBUILDs are read from \${NIER_PKGBUILDS_DIR:-~/Work/nier/nier-pkgs/pkgbuilds}/<package-name>/.
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+  cat <<'USAGE'
+Usage: nier dev pkg-test [spec-file] [path-to-checkout]
+Defaults to the active Nier checkout and its sibling
+nier-copr/packages/nier-desktop/nier-desktop.spec (or $NIER_RPM_SPEC).
+Requires rpm-build and the spec's BuildRequires to be installed on Fedora.
+Builds unprivileged, then installs the resulting RPM through DNF.
+Development RPMs use release 999.dev.TIMESTAMP.gCOMMIT so installed builds
+can be replaced. Use dnf distro-sync nier-desktop to return to repository builds.
 USAGE
   exit 0
 fi
-
-remove_pkgver_function() {
-  local pkgbuild="$1"
-  local tmp="$pkgbuild.tmp"
-
-  awk '
-    /^pkgver\(\)[[:space:]]*\{/ {
-      in_pkgver = 1
-      depth = 0
-    }
-    in_pkgver {
-      line = $0
-      opens = gsub(/\{/, "{", line)
-      line = $0
-      closes = gsub(/\}/, "}", line)
-      depth += opens - closes
-      if (depth <= 0) {
-        in_pkgver = 0
-      }
-      next
-    }
-    { print }
-  ' "$pkgbuild" >"$tmp"
-  mv "$tmp" "$pkgbuild"
+(( $# <= 2 )) || { echo 'Too many arguments; see --help.' >&2; exit 2; }
+checkout=$(realpath "${2:-${NIER_PATH:-/usr/local/share/nier}/..}")
+spec=${1:-${NIER_RPM_SPEC:-$checkout/../nier-copr/packages/nier-desktop/nier-desktop.spec}}
+[[ -f $spec && -f $checkout/share/version && -f $checkout/bin/nier ]] || {
+  echo 'Provide the nier-desktop RPM spec and source checkout; see --help.' >&2; exit 1;
 }
-
-dev_package_name() {
-  local pkg="$1"
-
-  case "$pkg" in
-    nier | nier-settings)
-      printf '%s-dev\n' "$pkg"
-      ;;
-    *)
-      printf '%s\n' "$pkg"
-      ;;
-  esac
-}
-
-if (( $# == 0 )); then
-  PKGS=(nier-settings-dev nier-dev)
-  CHECKOUT="$HOME/Work/nier/nier-installer"
-  MAKEPKG_ARGS=()
-else
-  PKGS=("$(dev_package_name "$1")")
-  CHECKOUT="${2:-$HOME/Work/nier/nier-installer}"
-  MAKEPKG_ARGS=("${@:3}")
-fi
-PKGBUILDS_ROOT="${NIER_PKGBUILDS_DIR:-$HOME/Work/nier/nier-pkgs/pkgbuilds}"
-
-if [[ ! -d "$CHECKOUT" ]]; then
-  echo "Error: checkout not found at $CHECKOUT" >&2
-  exit 1
-fi
-for PKG in "${PKGS[@]}"; do
-  PKGBUILD_DIR="$PKGBUILDS_ROOT/$PKG"
-  if [[ ! -f "$PKGBUILD_DIR/PKGBUILD" ]]; then
-    echo "Error: PKGBUILD not found at $PKGBUILD_DIR/PKGBUILD" >&2
-    echo "       Pass a different package name as arg 1, or set NIER_PKGBUILDS_DIR." >&2
-    exit 1
-  fi
-done
-
-build_dir=$(mktemp -d -t nier-dev-pkg-test.XXXXXX)
-trap 'rm -rf "$build_dir"' EXIT
-
-# pkgver=dev.<sha>[.dirty] so pacman -Q makes the source obvious.
-short_sha=$(git -C "$CHECKOUT" rev-parse --short HEAD 2>/dev/null || echo "local")
-dirty=""
-if [[ -d "$CHECKOUT/.git" ]] && [[ -n "$(git -C "$CHECKOUT" status --porcelain)" ]]; then
-  dirty=".dirty"
-fi
-new_pkgver="dev.${short_sha}${dirty}"
-
-for PKG in "${PKGS[@]}"; do
-  PKGBUILD_DIR="$PKGBUILDS_ROOT/$PKG"
-  package_build_dir="$build_dir/$PKG"
-  mkdir -p "$package_build_dir"
-  cp -a "$PKGBUILD_DIR/." "$package_build_dir/"
-
-  remove_pkgver_function "$package_build_dir/PKGBUILD"
-  sed -i "s/^pkgver=.*/pkgver=${new_pkgver}/" "$package_build_dir/PKGBUILD"
-
-  echo "Building $PKG ${new_pkgver} from $CHECKOUT"
-  echo "  build dir: $package_build_dir"
-  echo "  PKGBUILD : $PKGBUILD_DIR/PKGBUILD"
-  echo
-
-  (
-    cd "$package_build_dir"
-    NIER_SRC="$CHECKOUT" makepkg -s --skipchecksums --noconfirm "${MAKEPKG_ARGS[@]}"
-  )
-
-  # Install separately so we can pass --overwrite='*' (makepkg -i can't).
-  # Dev builds frequently conflict with files left behind by previous
-  # script-installed Nier versions; the build is the authoritative state.
-  built_pkg=$(ls -t "$package_build_dir"/*.pkg.tar.* 2>/dev/null | grep -v '\.sig$' | head -1)
-  if [[ -z $built_pkg ]]; then
-    echo "Error: no built package found in $package_build_dir" >&2
-    exit 1
-  fi
-  sudo pacman -U --noconfirm --overwrite='*' "$built_pkg"
-done
+command -v rpmbuild >/dev/null || { echo 'Install Fedora rpm-build first.' >&2; exit 127; }
+build=$(mktemp -d -t nier-rpm-test.XXXXXX)
+trap 'rm -rf "$build"' EXIT
+mkdir -p "$build"/{SOURCES,SPECS,BUILD,RPMS,SRPMS}
+sha=$(git -C "$checkout" rev-parse HEAD)
+release="999.dev.$(date -u +%Y%m%d%H%M%S).g${sha:0:7}"
+python3 - "$spec" "$build/SPECS/nier-desktop.spec" "$sha" "$release" <<'PY'
+from pathlib import Path
+import re
+import sys
+source, target, commit, release = sys.argv[1:]
+text = Path(source).read_text()
+if not re.search(r'^Name:\s+nier-desktop\s*$', text, re.M):
+    raise SystemExit('This helper only builds the Nier Desktop RPM.')
+text = re.sub(r'^%global commit .*$', '%global commit ' + commit, text, flags=re.M)
+text = re.sub(r'^Release:.*$', 'Release: ' + release + '%{?dist}', text, flags=re.M)
+text = re.sub(r'^Source0:.*$', 'Source0: nier-desktop-dev.tar.gz', text, flags=re.M)
+Path(target).write_text(text)
+PY
+tar --exclude=.git --exclude=__pycache__ --exclude=.state --exclude=dist \
+  --transform="s,^\\.,nier-desktop-$sha," \
+  -czf "$build/SOURCES/nier-desktop-dev.tar.gz" -C "$checkout" .
+rpmbuild --define "_topdir $build" -bb "$build/SPECS/nier-desktop.spec"
+mapfile -d '' -t packages < <(find "$build/RPMS" -name '*.rpm' -type f -print0)
+(( ${#packages[@]} )) || { echo 'No RPM was built.' >&2; exit 1; }
+sudo dnf install -y -- "${packages[@]}"

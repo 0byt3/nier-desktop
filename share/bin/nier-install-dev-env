@@ -8,13 +8,15 @@
 # nier:examples=nier install dev-env ruby | nier install dev-env node
 # nier:requires-sudo=true
 
-if [[ -z $1 ]]; then
+set -e
+
+if [[ -z ${1:-} ]]; then
   echo "Usage: nier-install-dev-env <ruby|node|bun|deno|go|laravel|symfony|php|python|elixir|phoenix|rust|java|zig|ocaml|dotnet|clojure|scala>" >&2
   exit 1
 fi
 
 install_php() {
-  nier-pkg-add php composer php-sqlite xdebug
+  nier-pkg-add php-cli composer php-pdo php-bcmath php-intl php-mysqlnd
 
   # Install Path for Composer
   if [[ :$PATH: != *:$HOME/.config/composer/vendor/bin:* ]]; then
@@ -25,26 +27,8 @@ install_php() {
     echo "Composer global bin directory already in PATH."
   fi
 
-  # Enable some extensions
-  local php_ini_path="/etc/php/php.ini"
-  local extensions_to_enable=(
-    "bcmath"
-    "intl"
-    "iconv"
-    "openssl"
-    "pdo_sqlite"
-    "pdo_mysql"
-  )
+  # Fedora extension RPMs load themselves through /etc/php.d.
 
-  # Enable Xdebug
-  sudo sed -i \
-    -e 's/^;zend_extension=xdebug.so/zend_extension=xdebug.so/' \
-    -e 's/^;xdebug.mode=debug/xdebug.mode=debug/' \
-    /etc/php/conf.d/xdebug.ini
-
-  for ext in "${extensions_to_enable[@]}"; do
-    sudo sed -i "s/^;extension=${ext}/extension=${ext}/" "$php_ini_path"
-  done
 }
 
 install_node() {
@@ -92,7 +76,7 @@ laravel)
 symfony)
   echo -e "Installing PHP and Symfony...\n"
   install_php
-  nier-pkg-add symfony-cli
+  mise use --global github:symfony-cli/symfony-cli@latest
   echo -e "\nYou can now run: symfony new --webapp myproject"
   ;;
 python)

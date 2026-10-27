@@ -894,10 +894,6 @@ restore_snapshots() {
     restore_fedora "${requested}"
     return
   fi
-  if command -v limine-snapper-restore >/dev/null && [[ -f /boot/limine.conf ]]; then
-    limine-snapper-restore
-    return
-  fi
   die "No GRUB boot entries found."
 }
 

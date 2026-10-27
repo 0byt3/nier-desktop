@@ -49,8 +49,6 @@ nier share clipboard               # Share the clipboard via LocalSend
 nier share file <path...>          # Share files with nearby devices
 nier share folder <path>           # Share a folder
 
-nier tailscale send <machine> <file...>    # Taildrop to a tailnet machine
-nier tailscale receive [directory]         # Save incoming Taildrop files
 ```
 
 Shrink large captures before sharing them:

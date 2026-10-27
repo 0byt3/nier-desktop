@@ -1,0 +1,9 @@
+#!/bin/bash
+# nier:summary=Manage Fedora kernel arguments through GRUB/BLS
+# nier:args=<add|remove> <arguments...>
+# nier:requires-sudo=true
+set -euo pipefail
+if (( EUID != 0 )); then
+  exec sudo -- "$0" "$@"
+fi
+exec python3 "${NIER_PATH:-/usr/local/share/nier}/lib/nier-kernel-args.py" "$@"

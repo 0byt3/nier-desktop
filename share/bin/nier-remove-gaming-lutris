@@ -1,23 +1,7 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Remove Lutris, Wine, umu-launcher, and all their configs and caches.
-# nier:requires-sudo=true
-
-set -e
-
-nier-pkg-drop lutris wine-staging wine-mono wine-gecko winetricks python-protobuf umu-launcher
-
-rm -rf \
-  "$HOME/.config/lutris" \
-  "$HOME/.local/share/lutris" \
-  "$HOME/.cache/lutris" \
-  "$HOME/.local/share/umu" \
-  "$HOME/.cache/umu" \
-  "$HOME/.wine" \
-  "$HOME/.cache/wine" \
-  "$HOME/.cache/winetricks"
-
-echo ""
-echo "Lutris, Wine, umu-launcher, and their configs have been removed."
+# nier:summary=Uninstall the Nier Flatpak for lutris while keeping user data
+set -euo pipefail
+nier-flatpak-app remove net.lutris.Lutris
+echo 'Application removed. Game libraries, saves and settings were preserved.'

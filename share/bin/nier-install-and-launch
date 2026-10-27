@@ -4,7 +4,7 @@
 
 # nier:summary=Install a packaged app and launch it once it finishes
 # nier:args=<display-name> <packages> <desktop-id>
-# nier:examples=nier install and launch Cursor cursor-bin cursor
+# nier:examples=nier install and launch Emacs emacs emacs
 
 name="${1-}"
 packages="${2-}"

@@ -5,7 +5,7 @@
 # nier:summary=Apply Nier hardware-specific packages and system configuration
 # nier:group=apply
 # nier:requires-sudo=true
-# nier:examples=nier apply hardware --install-user dhh
+# nier:examples=nier apply hardware --install-user erolleman
 # nier:hidden=true
 
 set -euo pipefail
@@ -13,19 +13,15 @@ set -euo pipefail
 usage() {
   cat <<USAGE
 Usage: nier apply hardware --install-user USER
-       nier apply hardware --defer-provisioning
 
 Runs idempotent hardware detection/setup for the installed machine. This is
 called by nier-apply-system during ISO finalization and can be rerun later
 for diagnostics or after hardware/package updates.
 
---defer-provisioning runs without an install user (deferred-provisioning installs create the user at
-first boot); group grants are recorded in /var/lib/nier/provisioning/groups.
 USAGE
 }
 
 install_user="${NIER_INSTALL_USER:-}"
-defer_provisioning=0
 while (($#)); do
   case "$1" in
     --install-user)
@@ -33,8 +29,8 @@ while (($#)); do
       shift 2
       ;;
     --defer-provisioning)
-      defer_provisioning=1
-      shift
+      echo 'Deferred ISO provisioning is unsupported; use nier apply on an existing Fedora installation.' >&2
+      exit 2
       ;;
     -h|--help)
       usage
@@ -53,18 +49,14 @@ if (( EUID != 0 )); then
   exit 1
 fi
 
-if (( defer_provisioning )); then
-  install_user=""
-else
-  if [[ -z $install_user || $install_user == "root" ]]; then
-    echo "Error: --install-user must name the target non-root user" >&2
-    exit 1
-  fi
+if [[ -z $install_user || $install_user == "root" ]]; then
+  echo "Error: --install-user must name the target non-root user" >&2
+  exit 1
+fi
 
-  if ! getent passwd "$install_user" >/dev/null; then
-    echo "Error: user '$install_user' does not exist" >&2
-    exit 1
-  fi
+if ! getent passwd "$install_user" >/dev/null; then
+  echo "Error: user '$install_user' does not exist" >&2
+  exit 1
 fi
 
 export NIER_INSTALL_USER="$install_user"
@@ -75,3 +67,8 @@ export PATH="$NIER_PATH/bin:$PATH"
 
 source "$NIER_INSTALL/helpers/logging.sh"
 source "$NIER_INSTALL/hardware/all.sh"
+
+# Rebuild only when hardware setup supplied Nier dracut driver configuration.
+if compgen -G '/etc/dracut.conf.d/nier-*.conf' >/dev/null; then
+  dracut --force --regenerate-all
+fi

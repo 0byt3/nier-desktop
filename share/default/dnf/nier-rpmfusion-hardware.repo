@@ -1,0 +1,40 @@
+# Extends fedora-workstation-repositories; hardware is added at apply time.
+[nier-rpmfusion-free-hardware]
+name = Nier apps, multimedia and detected hardware - RPM Fusion free - Fedora $releasever
+metalink = https://mirrors.rpmfusion.org/metalink?repo=free-fedora-$releasever&arch=$basearch
+enabled = 1
+gpgcheck = 1
+repo_gpgcheck = 0
+gpgkey = file:///usr/share/distribution-gpg-keys/rpmfusion/RPM-GPG-KEY-rpmfusion-free-fedora-$releasever
+includepkgs = a52dec* amrnb* amrwb* compat-ffmpeg* discord faac* faad2* fdk-aac* fdkaac* ffmpeg* gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly lame* libaacs* libavcodec-freeworld libavdevice libbdplus* libdca* libde265* libdvd* libfreeaptx* libheif-freeworld librtmp* libvlc* opencore-amr* pipewire-codec-aptx rtmpdump steam* svt-hevc* twolame* vlc* vo-amrwbenc* vvdec* vvenc* x264* x265* xvidcore*
+skip_if_unavailable = False
+
+[nier-rpmfusion-free-hardware-updates]
+name = Nier apps, multimedia and detected hardware - RPM Fusion free-updates - Fedora $releasever
+metalink = https://mirrors.rpmfusion.org/metalink?repo=free-fedora-updates-released-$releasever&arch=$basearch
+enabled = 1
+gpgcheck = 1
+repo_gpgcheck = 0
+gpgkey = file:///usr/share/distribution-gpg-keys/rpmfusion/RPM-GPG-KEY-rpmfusion-free-fedora-$releasever
+includepkgs = a52dec* amrnb* amrwb* compat-ffmpeg* discord faac* faad2* fdk-aac* fdkaac* ffmpeg* gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly lame* libaacs* libavcodec-freeworld libavdevice libbdplus* libdca* libde265* libdvd* libfreeaptx* libheif-freeworld librtmp* libvlc* opencore-amr* pipewire-codec-aptx rtmpdump steam* svt-hevc* twolame* vlc* vo-amrwbenc* vvdec* vvenc* x264* x265* xvidcore*
+skip_if_unavailable = False
+
+[nier-rpmfusion-nonfree-hardware]
+name = Nier apps, multimedia and detected hardware - RPM Fusion nonfree - Fedora $releasever
+metalink = https://mirrors.rpmfusion.org/metalink?repo=nonfree-fedora-$releasever&arch=$basearch
+enabled = 1
+gpgcheck = 1
+repo_gpgcheck = 0
+gpgkey = file:///usr/share/distribution-gpg-keys/rpmfusion/RPM-GPG-KEY-rpmfusion-nonfree-fedora-$releasever
+includepkgs = a52dec* amrnb* amrwb* compat-ffmpeg* discord faac* faad2* fdk-aac* fdkaac* ffmpeg* gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly lame* libaacs* libavcodec-freeworld libavdevice libbdplus* libdca* libde265* libdvd* libfreeaptx* libheif-freeworld librtmp* libvlc* opencore-amr* pipewire-codec-aptx rtmpdump steam* svt-hevc* twolame* vlc* vo-amrwbenc* vvdec* vvenc* x264* x265* xvidcore*
+skip_if_unavailable = False
+
+[nier-rpmfusion-nonfree-hardware-updates]
+name = Nier apps, multimedia and detected hardware - RPM Fusion nonfree-updates - Fedora $releasever
+metalink = https://mirrors.rpmfusion.org/metalink?repo=nonfree-fedora-updates-released-$releasever&arch=$basearch
+enabled = 1
+gpgcheck = 1
+repo_gpgcheck = 0
+gpgkey = file:///usr/share/distribution-gpg-keys/rpmfusion/RPM-GPG-KEY-rpmfusion-nonfree-fedora-$releasever
+includepkgs = a52dec* amrnb* amrwb* compat-ffmpeg* discord faac* faad2* fdk-aac* fdkaac* ffmpeg* gstreamer1-plugins-bad-freeworld gstreamer1-plugins-ugly lame* libaacs* libavcodec-freeworld libavdevice libbdplus* libdca* libde265* libdvd* libfreeaptx* libheif-freeworld librtmp* libvlc* opencore-amr* pipewire-codec-aptx rtmpdump steam* svt-hevc* twolame* vlc* vo-amrwbenc* vvdec* vvenc* x264* x265* xvidcore*
+skip_if_unavailable = False

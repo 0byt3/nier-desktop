@@ -4,7 +4,7 @@
 
 # nier:summary=Pick files with the desktop file chooser
 # nier:args=[--title <title>] [--multiple] [--directory] [--extensions "<ext ext...>"]
-# nier:examples=nier file select --title "Send with Tailscale" --multiple | nier file select --title "Pick image" --extensions "png svg" | nier file select --title "Share folder" --directory
+# nier:examples=nier file select --title "Share files" --multiple | nier file select --title "Pick image" --extensions "png svg" | nier file select --title "Share folder" --directory
 
 # Python rather than bash, alone among the commands here, because the portal
 # answers a request with a Response signal addressed to the connection that

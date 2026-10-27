@@ -3,7 +3,7 @@
 # Credit: Adapted from Omarchy
 
 # nier:summary=Set and launch the default coding agent
-# nier:args=[pi|omp|opencode|claude|codex|grok|gemini|openclaw|hermes|copilot|crush|cursor-agent|muse]
+# nier:args=[pi|omp|opencode|claude|codex|grok|gemini|copilot|crush|cursor-agent|muse]
 # nier:examples=nier default agent | nier default agent codex | nier default agent claude
 
 installing=false
@@ -34,8 +34,6 @@ codex) agent="codex"; name="Codex" ;;
 crush) agent="crush"; name="Crush" ;;
 grok) agent="grok"; name="Grok"; agent_package="npm:@xai-official/grok" ;;
 gemini | gemini-cli) agent="gemini"; name="Gemini" ;;
-openclaw) agent="openclaw"; name="OpenClaw"; agent_installer="nier-install-openclaw-cli" ;;
-hermes) agent="hermes"; name="Hermes"; agent_installer="nier-install-hermes-cli" ;;
 copilot | github-copilot) agent="copilot"; name="GitHub Copilot" ;;
 muse | muse-code | musecode)
   agent="muse"; name="Muse Code"
@@ -44,45 +42,27 @@ muse | muse-code | musecode)
   ;;
 cursor | cursor-agent) agent="cursor-agent"; name="Cursor CLI" ;;
 *)
-  echo "Usage: nier-default-agent <pi|omp|opencode|claude|codex|grok|gemini|openclaw|hermes|copilot|crush|cursor-agent|muse>"
+  echo "Usage: nier-default-agent <pi|omp|opencode|claude|codex|grok|gemini|copilot|crush|cursor-agent|muse>"
   exit 1
   ;;
 esac
 
 agent_package=${agent_package:-$agent}
 
-# Hermes and OpenClaw are not mise tools: each is a self-updating runtime in
-# the user's home, Hermes the desktop app's and OpenClaw the one its Control
-# UI updates. Each has its own installer with the same --check/--now contract
-# mise-backed agents get from mise; see nier-install-hermes-cli and
-# nier-install-openclaw-cli.
-if [[ -n ${agent_installer:-} ]]; then
-  # Not nier-cmd-present: a command on PATH says nothing about whether the
-  # install behind it finished or runs the sessions nier-agent starts.
-  # Treating it as installed would skip the floating terminal and run a
-  # minutes-long install inside the menu action instead.
-  agent_present() { "$agent_installer" --check; }
-  agent_install() { "$agent_installer" --now; }
-else
-  # Anything at the wrapper's path other than the wrapper is the user's own
-  # install, such as the symlink Cursor's installer leaves. A mise copy would
-  # only shadow it, since the mise shims precede ~/.local/bin on PATH.
-  user_install() {
-    [[ -x $HOME/.local/bin/$agent ]] &&
-      { [[ -L $HOME/.local/bin/$agent ]] || ! grep -q '^mise use -g' "$HOME/.local/bin/$agent"; }
-  }
-  agent_present() { user_install || mise where "$agent_package" &>/dev/null; }
-  agent_install() { user_install || mise use -g "$agent_package"; }
-fi
+# A user-managed install takes priority over a Mise-provided tool.
+user_install() {
+  [[ -x $HOME/.local/bin/$agent ]] &&
+    { [[ -L $HOME/.local/bin/$agent ]] || ! grep -q '^mise use -g' "$HOME/.local/bin/$agent"; }
+}
+agent_present() { user_install || mise where "$agent_package" &>/dev/null; }
+agent_install() { user_install || mise use -g "$agent_package"; }
 
 if [[ $installing == "false" ]] && ! agent_present; then
   exec nier-launch-floating-terminal-with-presentation nier-default-agent --install "$agent"
 fi
 
 if ! agent_install; then
-  if [[ $installing == "true" && -n ${agent_installer:-} ]]; then
-    echo "Could not install $name" >&2
-  elif [[ $installing == "true" ]]; then
+  if [[ $installing == "true" ]]; then
     echo "Could not install $name with mise" >&2
   else
     echo "Could not set $name as the default coding agent" >&2

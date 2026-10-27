@@ -1,4 +1,5 @@
 # Credit: Adapted from Omarchy
+run_logged "$NIER_INSTALL/hardware/rpmfusion.sh"
 run_logged "$NIER_INSTALL/hardware/asus-rog.sh"
 run_logged "$NIER_INSTALL/hardware/framework16.sh"
 run_logged "$NIER_INSTALL/hardware/dell-xps-touchpad-haptics.sh"
@@ -40,4 +41,3 @@ run_logged "$NIER_INSTALL/hardware/fix-surface-keyboard.sh"
 run_logged "$NIER_INSTALL/hardware/fix-yt6801-ethernet-adapter.sh"
 run_logged "$NIER_INSTALL/hardware/fix-tuxedo-backlight.sh"
 run_logged "$NIER_INSTALL/hardware/speaker-tuning.sh"
-run_logged "$NIER_INSTALL/hardware/pacman.sh"

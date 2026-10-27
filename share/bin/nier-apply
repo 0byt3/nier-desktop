@@ -208,8 +208,7 @@ seed_skill_links_into() {
     "${home}/.agents/skills" \
     "${home}/.claude/skills" \
     "${home}/.codex/skills" \
-    "${home}/.pi/agent/skills" \
-    "${home}/.hermes/skills"
+    "${home}/.pi/agent/skills"
 
   for skill in "${share}/default/agents/skills/"*/; do
     [[ -d ${skill} ]] || continue
@@ -219,8 +218,7 @@ seed_skill_links_into() {
       "${home}/.agents/skills/${name}" \
       "${home}/.claude/skills/${name}" \
       "${home}/.codex/skills/${name}" \
-      "${home}/.pi/agent/skills/${name}" \
-      "${home}/.hermes/skills/${name}"; do
+      "${home}/.pi/agent/skills/${name}"; do
       ln -sfn "${skill}" "${dest}"
     done
   done

@@ -30,7 +30,7 @@ if [[ ${1:-} == "-y" ]] || nier-update-confirm; then
   nier-update-stay-awake start
 
   echo -e "\e[32m\nUpdating Fedora DNF packages...\e[0m"
-  sudo dnf upgrade --refresh -y
+  nier-update-system-pkgs
 
   if command -v flatpak >/dev/null 2>&1; then
     echo -e "\e[32m\nUpdating Flatpak applications...\e[0m"

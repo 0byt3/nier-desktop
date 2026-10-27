@@ -9,7 +9,11 @@ updates=()
 
 if command -v dnf >/dev/null 2>&1; then
   rc=0
-  out=$(dnf check-upgrade --quiet 2>/dev/null) || rc=$?
+  out=$(dnf check-upgrade --quiet) || rc=$?
+  if (( rc != 0 && rc != 100 )); then
+    echo 'Could not check Fedora updates; check DNF repository connectivity.' >&2
+    exit 2
+  fi
   if (( rc == 100 )); then
     while IFS= read -r line; do
       [[ -n ${line} ]] && updates+=("${line}")

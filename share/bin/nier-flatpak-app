@@ -1,0 +1,18 @@
+#!/bin/bash
+# nier:summary=Install or remove a user Flatpak application from Flathub
+# nier:args=<install|remove> <application-id>
+set -euo pipefail
+action=${1:-}
+app=${2:-}
+if [[ $# != 2 || ! $app =~ ^[a-zA-Z][a-zA-Z0-9_-]*(\.[a-zA-Z0-9_-]+){2,}$ || ! $action =~ ^(install|remove)$ ]]; then
+  echo 'Usage: nier flatpak app <install|remove> <application-id>' >&2
+  exit 2
+fi
+if [[ $action == install ]]; then
+  nier-pkg-add flatpak
+  flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  exec flatpak install --user -y flathub "$app"
+elif command -v flatpak >/dev/null && flatpak info --user "$app" >/dev/null 2>&1; then
+  # Match the scope used by our installer; keep saves/config and system installations.
+  exec flatpak uninstall --user -y "$app"
+fi

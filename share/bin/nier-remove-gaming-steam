@@ -1,19 +1,7 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Remove Steam and all of its game libraries, configs, and caches.
-# nier:requires-sudo=true
-
-set -e
-
-nier-pkg-drop steam
-
-rm -rf \
-  "$HOME/.steam" \
-  "$HOME/.local/share/Steam" \
-  "$HOME/.config/steam" \
-  "$HOME/.cache/steam"
-
-echo ""
-echo "Steam and its data have been removed."
+# nier:summary=Uninstall the Nier Flatpak for steam while keeping user data
+set -euo pipefail
+nier-flatpak-app remove com.valvesoftware.Steam
+echo 'Application removed. Game libraries, saves and settings were preserved.'

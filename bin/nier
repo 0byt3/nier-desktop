@@ -100,7 +100,6 @@ GROUP_DESCRIPTIONS[monitor]="Monitor status helpers"
 GROUP_DESCRIPTIONS[network]="Network status helpers"
 GROUP_DESCRIPTIONS[notification]="Notification helpers"
 GROUP_DESCRIPTIONS[mise]="Mise tool wrappers"
-GROUP_DESCRIPTIONS[openclaw]="OpenClaw agent platform setup"
 GROUP_DESCRIPTIONS[osd]="On-screen display status helpers"
 GROUP_DESCRIPTIONS[pkg]="Package management helpers"
 GROUP_DESCRIPTIONS[plugin]="Nier shell plugin and bar widget management"
@@ -115,7 +114,6 @@ GROUP_DESCRIPTIONS[screensaver]="Screensaver branding and animation"
 GROUP_DESCRIPTIONS[snapshot]="System snapshots"
 GROUP_DESCRIPTIONS[sudo]="Sudo configuration helpers"
 GROUP_DESCRIPTIONS[system]="System status, reboot, shutdown, logout, and lock"
-GROUP_DESCRIPTIONS[tailscale]="Tailscale helpers"
 GROUP_DESCRIPTIONS[toggle]="Toggle Nier features"
 GROUP_DESCRIPTIONS[transcode]="Image and video transcoding"
 GROUP_DESCRIPTIONS[tui]="Terminal UI launchers"
@@ -155,7 +153,7 @@ append_pipe_value() {
   fi
 }
 
-# A route can resolve to a binary before all args are consumed (`update aur` only matches the `update` binary, leaving `aur` and `--help` as leftovers)
+# A route can resolve to a binary before all args are consumed (`update firmware` only matches the `update` binary, leaving `firmware` and `--help` as leftovers)
 # --help must never be lost among those leftovers and get forwarded into the real command, so this checks the whole remainder rather than just the first token.
 # A `--` marks everything after it as belonging to the command itself, so scanning stops there.
 remaining_has_help_flag() {

@@ -396,17 +396,15 @@ var GUARD_READERS = [
 // them everywhere, including for no arguments at all (present is true of
 // nothing, missing is not).
 //
-// `pacman -Q` resolves a name through what installed packages provide, not
+// `rpm -q --whatprovides` resolves a name through what installed packages provide, not
 // just what they are called -- with gvim installed it reports `vim` as
 // present -- so the set has to carry provides too, or `install.editor.vim`
 // comes back and offers to install what is already there. A version
 // constraint (`bash>=1`) is not a name any set can answer, so it goes to
-// pacman itself; no shipped guard writes one.
+// RPM itself; no shipped guard writes one.
 //
-// `pacman -Qi` wraps a long list across continuation lines whenever COLUMNS
-// is set in the environment, which a login shell may well have done, so the
-// parser follows the indented lines rather than reading the first one and
-// dropping half of what is installed.
+// RPM query-format and --provides output are newline-delimited and do not
+// depend on the interactive terminal width.
 function guardHelpers() {
   return 'declare -A __nier_pkgs=()\n'
     + 'mapfile -t __nier_pkg_names < <({ rpm -qa --qf "%{NAME}\\n"; rpm -qa --provides | sed "s/[[:space:]].*//"; } 2>/dev/null)\n'

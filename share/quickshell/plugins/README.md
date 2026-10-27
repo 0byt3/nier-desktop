@@ -26,7 +26,6 @@ User-installed plugins live alongside these conceptually but on disk under
 | Monitor       | `nier.monitor`         | `bar-widget`            | `panels/monitor/Panel.qml`            |
 | Network       | `nier.network`         | `bar-widget`            | `panels/network/Panel.qml`            |
 | Power         | `nier.power`           | `bar-widget`            | `panels/power/Panel.qml`              |
-| Tailscale     | `nier.tailscale`       | `bar-widget`            | `panels/tailscale/Panel.qml`          |
 | Agents   | `nier.agents`     | `bar-widget`            | `agents/Panel.qml`               |
 | Weather       | `nier.weather`         | `bar-widget`            | `panels/weather/BarWidget.qml`        |
 | Media         | `nier.media`           | `service`, `bar-widget` | `services/media/Service.qml`, `services/media/BarWidget.qml` |

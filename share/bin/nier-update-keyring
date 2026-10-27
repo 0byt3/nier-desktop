@@ -1,26 +1,9 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Ensure the Nier and Arch keyring packages are installed and populated
+# nier:summary=Update Fedora repository signing-key packages
 # nier:requires-sudo=true
-
-if nier-pkg-missing nier-keyring || ! sudo pacman-key --list-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 &>/dev/null; then
-  sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver keys.openpgp.org
-  sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
-
-  # This is generally not a good idea, but this is a special case because we're going to be updating
-  # the full set of packages in nier-update-system-pkgs right after this (and it needs latest keyring)!
-  sudo pacman -Sy
-  nier-pkg-add nier-keyring
-
-  sudo pacman-key --list-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571
-fi
-
-# Ensure we have the latest archlinux-keyring, maintainer keys might have changed.
-# --needed installs only a newer keyring: new or revoked keys reach the repos
-# as a new package version, and an installed version was populated when it
-# went in, so reinstalling the same one only repeats that populate.
-echo -e "\e[32m\nUpdate Arch signing keys\e[0m"
-sudo pacman -Sy --needed --noconfirm archlinux-keyring >/dev/null 2> >(grep -vE '^warning: archlinux-keyring-[^ ]+ is up to date -- skipping$' >&2)
-echo "Keys are correct"
+set -euo pipefail
+# COPR/vendor keys remain managed by their signed repository configuration and DNF.
+# Never import or locally trust arbitrary keys on behalf of the user.
+exec sudo dnf upgrade --refresh -y fedora-gpg-keys fedora-repos

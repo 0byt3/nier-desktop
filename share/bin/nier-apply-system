@@ -5,7 +5,7 @@
 # nier:summary=Apply Nier system setup in the installed target
 # nier:group=apply
 # nier:requires-sudo=true
-# nier:examples=nier apply system --install-user dhh --first-install
+# nier:examples=nier apply system --install-user erolleman --first-install
 # nier:hidden=true
 
 set -euo pipefail
@@ -13,22 +13,17 @@ set -euo pipefail
 usage() {
   cat <<USAGE
 Usage: nier apply system --install-user USER [--first-install|--upgrade]
-       nier apply system --defer-provisioning --first-install
 
-Runs root-owned Nier system setup. The ISO calls this in the target chroot
+Runs root-owned Nier system setup. Run this against an installed Fedora system
 after packages are installed and the target user exists. It also calls
 nier-apply-hardware, so hardware setup cannot be accidentally skipped.
 
---defer-provisioning runs without an install user: deferred-provisioning installs create the user at
-first boot, so scripts that grant group memberships record them in
-/var/lib/nier/provisioning/groups instead of calling usermod.
 USAGE
 }
 
 install_user="${NIER_INSTALL_USER:-}"
 first_install=0
 upgrade=0
-defer_provisioning=0
 
 while (($#)); do
   case "$1" in
@@ -37,8 +32,8 @@ while (($#)); do
       shift 2
       ;;
     --defer-provisioning)
-      defer_provisioning=1
-      shift
+      echo 'Deferred ISO provisioning is unsupported; use nier apply on an existing Fedora installation.' >&2
+      exit 2
       ;;
     --first-install)
       first_install=1
@@ -65,18 +60,14 @@ if (( EUID != 0 )); then
   exit 1
 fi
 
-if (( defer_provisioning )); then
-  install_user=""
-else
-  if [[ -z $install_user || $install_user == "root" ]]; then
-    echo "Error: --install-user must name the target non-root user" >&2
-    exit 1
-  fi
+if [[ -z $install_user || $install_user == "root" ]]; then
+  echo "Error: --install-user must name the target non-root user" >&2
+  exit 1
+fi
 
-  if ! getent passwd "$install_user" >/dev/null; then
-    echo "Error: user '$install_user' does not exist" >&2
-    exit 1
-  fi
+if ! getent passwd "$install_user" >/dev/null; then
+  echo "Error: user '$install_user' does not exist" >&2
+  exit 1
 fi
 
 export NIER_INSTALL_USER="$install_user"
@@ -92,11 +83,7 @@ start_install_log
 
 source "$NIER_INSTALL/config/all.sh"
 
-if (( defer_provisioning )); then
-  nier-apply-hardware --defer-provisioning
-else
-  nier-apply-hardware --install-user "$install_user"
-fi
+nier-apply-hardware --install-user "$install_user"
 
 source "$NIER_INSTALL/login/all.sh"
 source "$NIER_INSTALL/post-install/all.sh"

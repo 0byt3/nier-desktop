@@ -87,7 +87,7 @@ function o.preinstalled_bindings_enabled()
     return _G.nier_preinstalled_bindings == true
   end
 
-  return not file_exists((os.getenv("HOME") or "") .. "/.local/state/nier/preinstalls-removed")
+  return true
 end
 
 function o.bind(keys, description, dispatcher, options)

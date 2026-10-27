@@ -1,34 +1,13 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Install lib32 graphics drivers (Vulkan + NVIDIA) for any detected GPUs.
+# nier:summary=Install Fedora 32-bit Mesa drivers, plus NVIDIA libraries when the NVIDIA driver is already installed
 # nier:group=install
 # nier:name=gaming gpu-lib32
 # nier:requires-sudo=true
-
-set -e
-
-echo "Installing lib32 graphics drivers..."
-
-PACKAGES=()
-
-declare -A VULKAN_DRIVERS=(
-  [Intel]=lib32-vulkan-intel
-  [AMD]=lib32-vulkan-radeon
-)
-for vendor in "${!VULKAN_DRIVERS[@]}"; do
-  if lspci | grep -iE "(VGA|Display).*$vendor" >/dev/null; then
-    PACKAGES+=("${VULKAN_DRIVERS[$vendor]}")
-  fi
-done
-
-if nier-hw-nvidia-gsp; then
-  PACKAGES+=(lib32-nvidia-utils)
-elif nier-hw-nvidia-without-gsp; then
-  PACKAGES+=(lib32-nvidia-580xx-utils)
+set -euo pipefail
+packages=(mesa-vulkan-drivers.i686 mesa-dri-drivers.i686 vulkan-loader.i686)
+if rpm -q xorg-x11-drv-nvidia >/dev/null 2>&1; then
+  packages+=(xorg-x11-drv-nvidia-libs.i686)
 fi
-
-if (( ${#PACKAGES[@]} > 0 )); then
-  nier-pkg-add "${PACKAGES[@]}"
-fi
+nier-pkg-add "${packages[@]}"

@@ -1,31 +1,18 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Review and optionally remove orphaned system packages after updates
+# nier:summary=Review and optionally remove unused Fedora dependency packages
 # nier:requires-sudo=true
-
-set -e
-
-mapfile -t orphans < <(pacman -Qtdq 2>/dev/null || true)
-(( ${#orphans[@]} )) || exit 0
-
-echo -e "\e[32m\nOrphan system packages\e[0m"
-printf '  %s\n' "${orphans[@]}"
-echo
-
+set -euo pipefail
+# Capture the query status: a repository/RPM error must not look like an empty list.
+output=$(dnf -q repoquery --installed --unneeded --qf '%{name}.%{arch}\n')
+[[ -n $output ]] || exit 0
+printf 'Unused dependency packages:\n%s\n' "$output"
 if [[ ! -t 0 || ! -t 1 ]]; then
-  echo "${#orphans[@]} orphaned package(s) found. Re-run nier-update-orphan-pkgs in a terminal to review/remove them."
-  echo
+  echo 'Run nier update orphan-pkgs in a terminal to review the removal transaction.'
   exit 0
 fi
-
-if ! gum confirm --default=false "Remove ${#orphans[@]} orphaned package(s)?"; then
-  echo "Keeping orphaned packages."
-  echo
-  exit 0
+if gum confirm --default=false 'Review removal of unused dependencies in DNF?'; then
+  # Let DNF resolve again and show its final transaction; do not auto-confirm removal.
+  sudo dnf autoremove
 fi
-
-echo -e "\e[32m\nRemoving orphan system packages\e[0m"
-sudo pacman -Rns "${orphans[@]}"
-echo

@@ -9,7 +9,7 @@ import qs.Commons as Commons
 //
 // The caller owns the value: bind `checked` to real state and flip it in
 // response to `toggled()`. Services that already track a desired state
-// optimistically (see the Tailscale service's `_desired`) get an instant knob
+// optimistically (using their own pending-state tracking) get an instant knob
 // throw for free, because `checked` is already the optimistic value.
 //
 // `busy` marks an operation in flight and swallows further clicks, but leaves

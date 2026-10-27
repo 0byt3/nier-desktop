@@ -1,17 +1,7 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Install Signal and launch it.
-# nier:requires-sudo=true
-
-set -e
-
-echo "Installing Signal..."
-nier-pkg-add signal-desktop
-
-echo "Opening Signal..."
-setsid uwsm-app -- /usr/bin/signal-desktop >/dev/null 2>&1 &
-
-echo ""
-echo "Signal has been installed."
+# nier:summary=Install and launch Signal through Flatpak
+set -euo pipefail
+nier-flatpak-app install org.signal.Signal
+setsid uwsm-app -- flatpak run org.signal.Signal >/dev/null 2>&1 &

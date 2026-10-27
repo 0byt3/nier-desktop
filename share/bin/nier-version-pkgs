@@ -1,7 +1,12 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-
-# nier:summary=Print when system packages were last upgraded
-
-date -d "$(grep upgraded /var/log/pacman.log | tail -1 | sed -E 's/\[([^]]+)\].*/\1/')" "+%A, %B %d %Y at %H:%M"
+# nier:summary=Print the latest installed RPM transaction time
+set -euo pipefail
+# RPM install times work for both DNF and direct RPM transactions, without root.
+latest=$(rpm -qa --qf '%{INSTALLTIME}\n' | sort -n | tail -1)
+if [[ ! $latest =~ ^[0-9]+$ ]]; then
+  echo 'No installed RPM transaction timestamp is available.' >&2
+  exit 1
+fi
+date -d "@$latest" '+%A, %B %d %Y at %H:%M'

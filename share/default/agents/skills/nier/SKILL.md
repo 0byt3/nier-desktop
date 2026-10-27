@@ -225,7 +225,7 @@ When user requests system changes:
 2. **Is it a config edit?** Edit in `~/.config/`, never `/usr/local/share/nier/`
 3. **Is it appearance customization?** Follow [`appearance.md`](appearance.md); edit the relevant user configuration
 4. **Is it automation?** Follow [`hooks.md`](hooks.md); use `nier hook install` and the hook `.d` directories
-5. **Is it a package install?** Use `nier pkg add <pkgs...>` (or `nier pkg aur add <pkgs...>` for AUR-only packages)
+5. **Is it a package install?** Use `nier pkg add <pkgs...>`; use the unified package picker for Flatpak/Mise alternatives
 6. **Is it built-in shell/plugin code?** Follow [`plugins.md`](plugins.md); clone it with `nier plugin clone`, never edit the packaged copy
 7. **Unsure if command exists?** Run `nier commands` (or `nier <group> --help` for one group)
 

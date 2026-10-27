@@ -12,7 +12,7 @@ if [[ -z $1 ]]; then
 fi
 
 remove_php() {
-  sudo pacman -Rns --noconfirm php composer php-sqlite xdebug 2>/dev/null || true
+  nier-pkg-drop php-cli composer php-pdo php-bcmath php-intl php-mysqlnd
 }
 
 case "$1" in
@@ -52,7 +52,7 @@ laravel)
   ;;
 symfony)
   echo -e "Removing Symfony CLI...\n"
-  sudo pacman -Rns --noconfirm symfony-cli 2>/dev/null || true
+  mise unuse -g github:symfony-cli/symfony-cli
   ;;
 python)
   echo -e "Removing Python...\n"
