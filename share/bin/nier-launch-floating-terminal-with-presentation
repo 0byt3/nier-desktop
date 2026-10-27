@@ -7,6 +7,6 @@
 
 
 cmd="$*"
-presentation_script="nier-show-logo; $cmd; if (( \$? != 130 )); then nier-show-done; fi"
+presentation_script="nier-show-logo; $cmd; result=\$?; if (( result != 130 )); then nier-show-done \"\$result\"; fi; exit \"\$result\""
 
 exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.nier.terminal --title=Nier -e bash -c "$presentation_script"

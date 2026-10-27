@@ -1,0 +1,8 @@
+#!/bin/bash
+# nier:summary=Start the Nier Hyprland session through UWSM
+# nier:hidden=true
+set -euo pipefail
+
+# Session environment belongs to the authenticated user, never the greeter.
+source /usr/local/share/nier/default/bash/env-bootstrap
+exec uwsm start -g -1 -e -D Hyprland hyprland.desktop

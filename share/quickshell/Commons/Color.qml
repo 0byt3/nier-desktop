@@ -11,11 +11,11 @@ QtObject {
 
   readonly property string home: Quickshell.env("HOME")
 
-  property color foreground: "#cacccc"
-  property color background: "#101315"
-  property color accent: "#cacccc"
-  property color urgent: "#a55555"
-  property color muted: "#707880"
+  property color foreground: "#cdd6f4"
+  property color background: "#1e1e2e"
+  property color accent: "#89b4fa"
+  property color urgent: "#f38ba8"
+  property color muted: "#585b70"
 
   // Flat dictionary of "section.key" -> raw string from shell.toml.
   // Reassigning this whole property is what makes surface bindings below
@@ -128,11 +128,11 @@ QtObject {
   }
 
   function loadColors(raw) {
-    foreground = "#cacccc"
-    background = "#101315"
-    accent = "#cacccc"
-    urgent = "#a55555"
-    muted = "#707880"
+    foreground = "#cdd6f4"
+    background = "#1e1e2e"
+    accent = "#89b4fa"
+    urgent = "#f38ba8"
+    muted = "#585b70"
     var lines = String(raw || "").split("\n")
     var foundAccent = false
     var foundMuted = false

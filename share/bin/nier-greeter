@@ -1,0 +1,14 @@
+#!/bin/bash
+# nier:summary=Run the Nier greetd login screen
+# nier:hidden=true
+set -euo pipefail
+
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QT_QPA_PLATFORMTHEME=none
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+if [[ ${1:-} != --inside-cage ]]; then
+  exec dbus-run-session -- cage -d -s -- "$0" --inside-cage
+fi
+python3 /usr/local/share/nier/greeter/configure-output.py
+exec quickshell -p /usr/local/share/nier/greeter

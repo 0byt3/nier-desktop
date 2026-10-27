@@ -1,0 +1,7 @@
+# Managed by nier apply --system. The only offered desktop is Nier.
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/local/share/nier/bin/nier-greeter"
+user = "greetd"

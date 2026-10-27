@@ -1,11 +1,17 @@
 #!/bin/bash
+# nier:summary=Display the Nier Desktop terminal wordmark
 
-# Credit: Adapted from Omarchy
-
-# nier:summary=Display the Nier Fedora logo in the terminal using blue color.
-
-clear
-echo -e "\033[34m"
-cat <"$NIER_PATH/logo.txt"
-echo -e "\033[0m"
-echo
+set -euo pipefail
+share=${NIER_PATH:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
+accent='' reset='' muted=''
+if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then
+  clear
+  if [[ ! -v NO_COLOR ]]; then
+    accent=$'\033[38;2;137;180;250m'
+    muted=$'\033[38;2;205;214;244m'
+    reset=$'\033[0m'
+  fi
+fi
+printf '\n%s' "$accent"
+while IFS= read -r line; do printf '  %s\n' "$line"; done < "$share/logo.txt"
+printf '%s\n  %sD E S K T O P  /  F E D O R A%s\n\n' "$reset" "$muted" "$reset"

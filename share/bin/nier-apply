@@ -29,7 +29,7 @@ Options:
                    graphical.target. Requires root.
   --system-wide, -s
                    Configure /etc/skel, globally enable user units, install
-                   shell customizations, and make Nier the default GDM session
+                   shell customizations, and deploy the Nier login session
                    for current and future users. Includes --system. Requires root.
   --all            Run --system (via sudo if needed) and then the user apply
   -h               Show this help
@@ -78,76 +78,34 @@ install_file() {
   install -Dm"${mode}" "${src}" "${dest}"
 }
 
-ensure_ini_key() {
-  local file=$1
-  local section=$2
-  local key=$3
-  local value=$4
-  local tmp in_section found line
-
-  mkdir -p "$(dirname "${file}")"
-  if [[ ! -f ${file} ]]; then
-    printf '[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >"${file}"
-    return
-  fi
-
-  tmp=$(mktemp)
-  in_section=0
-  found=0
-  while IFS= read -r line || [[ -n ${line} ]]; do
-    if [[ ${line} == "[${section}]" ]]; then
-      in_section=1
-      printf '%s\n' "${line}" >>"${tmp}"
-      continue
-    fi
-    if (( in_section )) && [[ ${line} == \[* ]]; then
-      if (( found == 0 )); then
-        printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
-        found=1
-      fi
-      in_section=0
-    fi
-    if (( in_section )) && [[ ${line} == "${key}="* ]]; then
-      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
-      found=1
-      continue
-    fi
-    printf '%s\n' "${line}" >>"${tmp}"
-  done <"${file}"
-
-  if (( found == 0 )); then
-    if (( in_section )); then
-      printf '%s=%s\n' "${key}" "${value}" >>"${tmp}"
-    else
-      printf '\n[%s]\n%s=%s\n' "${section}" "${key}" "${value}" >>"${tmp}"
-    fi
-  fi
-
-  chmod --reference="${file}" "${tmp}" 2>/dev/null || chmod 0644 "${tmp}"
-  mv "${tmp}" "${file}"
-}
-
-install_gdm() {
+install_greetd() {
   local share=$1
-  local unit
+  local src=${share}/default/greetd/config.toml
+  local config=/etc/greetd/config.toml
 
-  if ! rpm -q gdm >/dev/null 2>&1; then
-    dnf install -y gdm accountsservice
+  [[ -r ${src} && -r ${share}/greeter/shell.qml ]] || die "Packaged Nier greeter is missing"
+  if ! rpm -q greetd cage wlr-randr >/dev/null 2>&1; then
+    dnf install -y greetd cage wlr-randr
+  fi
+  getent passwd greetd >/dev/null || die "The greetd service account is missing"
+
+  if [[ -f ${config} ]] && ! cmp -s "${src}" "${config}"; then
+    cp -a "${config}" "${config}.bak.$(date +%s)"
+  fi
+  install_file "${src}" "${config}" 0644
+  if [[ ! -e /etc/nier/greeter.json ]]; then
+    install_file "${share}/greeter/style.json" /etc/nier/greeter.json 0644
   fi
 
-  if [[ -f ${share}/default/gdm/custom.conf && ! -f /etc/gdm/custom.conf ]]; then
-    install_file "${share}/default/gdm/custom.conf" /etc/gdm/custom.conf 0644
-  fi
-  mkdir -p /etc/gdm
-  ensure_ini_key /etc/gdm/custom.conf daemon WaylandEnable true
+  # Retire the old AccountsService session watcher without touching user data.
+  systemctl disable --now nier-gdm-default-session.path >/dev/null 2>&1 || true
+  rm -f /usr/lib/systemd/system/nier-gdm-default-session.path \
+    /usr/lib/systemd/system/nier-gdm-default-session.service
 
-  for unit in "${share}/systemd/system/"*; do
-    [[ -f ${unit} ]] || continue
-    install_file "${unit}" "/usr/lib/systemd/system/$(basename "${unit}")" 0644
-  done
-
-  systemctl disable --now sddm.service >/dev/null 2>&1 || true
-  systemctl enable gdm.service >/dev/null 2>&1 || true
+  # Do not interrupt an existing graphical login during RPM upgrades.
+  # The display-manager alias takes effect at the next boot (or manual switch).
+  systemctl disable gdm.service sddm.service >/dev/null 2>&1 || true
+  systemctl enable --force greetd.service
 }
 
 seed_file() {
@@ -462,7 +420,7 @@ EOF
     install_file "${src}" "${dest}" 0440
   done
 
-  install_gdm "${share}"
+  install_greetd "${share}"
   install_snapshot_boot "${share}"
   if [[ -f ${share}/grub.d/01_nier_sync_bls ]]; then
     install_file "${share}/grub.d/01_nier_sync_bls" /etc/grub.d/01_nier_sync_bls 0755
@@ -478,8 +436,8 @@ EOF
   systemctl daemon-reload >/dev/null 2>&1 || true
   systemctl set-default graphical.target >/dev/null 2>&1 || true
 
-  log "GDM installed and enabled; default target is graphical.target."
-  log "Select the 'Nier (Hyprland uwsm)' session at login."
+  log "Nier greetd login enabled; default target is graphical.target."
+  log "The new login manager takes effect on the next boot."
 }
 
 apply_system_wide() {
@@ -497,14 +455,12 @@ apply_system_wide() {
   seed_skill_links_into "${share}" "${skel}"
   enable_units_global
 
-  "${share}/bin/nier-gdm-default-session" --force
   systemctl daemon-reload >/dev/null 2>&1 || true
-  systemctl enable --now nier-gdm-default-session.path >/dev/null 2>&1 || true
 
   log "New-user defaults installed."
   log "  Skel desktop:     ${skel}/.config/hypr and ${skel}/.config/nier"
   log "  Skel shell:       ${skel}/.bashrc and ${skel}/.config/basic-cli"
-  log "  GDM session:      Nier (Hyprland uwsm) via AccountsService"
+  log "  Login session:    Nier (Hyprland uwsm) via greetd"
   log "  Global units:     /etc/systemd/user/*.wants (systemctl --global)"
   log "  User environment: /etc/environment.d/10-nier.conf"
 }

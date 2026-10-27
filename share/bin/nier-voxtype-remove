@@ -14,10 +14,11 @@ if nier-cmd-present voxtype; then
 
   # Remove services
   systemctl --user disable --now voxtype.service 2>/dev/null || true
+  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/voxtype.service.d/20-nier-backend.conf"
   systemctl --user daemon-reload
 
   # Remove packages and configs
-  nier-pkg-drop voxtype-bin
+  nier-pkg-drop voxtype
   rm -rf ~/.config/voxtype
   rm -rf ~/.local/share/voxtype
   hyprctl reload >/dev/null

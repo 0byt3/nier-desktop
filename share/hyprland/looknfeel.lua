@@ -1,7 +1,7 @@
 -- Credit: Adapted from Omarchy
 -- Refer to https://wiki.hypr.land/Configuring/Basics/Variables/
 
-local active_border_color = { colors = { "rgba(33ccffee)", "rgba(00ff99ee)" }, angle = 45 }
+local active_border_color = "#89b4fa"
 local inactive_border_color = "rgba(595959aa)"
 
 hl.config({
@@ -21,7 +21,7 @@ hl.config({
   },
 
   decoration = {
-    rounding = 0,
+    rounding = 4,
 
     shadow = {
       enabled = false,

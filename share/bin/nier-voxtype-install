@@ -10,17 +10,19 @@ set -e
 # Install voxtype and configure it for use.
 
 if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
-  nier-pkg-add wtype voxtype-bin
+  nier-pkg-add wtype voxtype vulkan-tools
 
   # Setup voxtype
   mkdir -p ~/.config/voxtype
-  cp "$NIER_PATH/default/voxtype/config.toml" ~/.config/voxtype/
-
-  voxtype setup --download --no-post-install
-  if nier-hw-vulkan; then
-    voxtype setup gpu --enable || true
+  if [[ ! -e ~/.config/voxtype/config.toml ]]; then
+    cp "$NIER_PATH/default/voxtype/config.toml" ~/.config/voxtype/
   fi
+
+  # Verify inference before selecting a backend; never replace the RPM's launcher.
+  python3 "$NIER_PATH/lib/nier-voxtype-backend.py"
   voxtype setup systemd
+  # setup systemd only starts an existing service; apply the new backend on reruns.
+  systemctl --user restart voxtype.service
 
   hyprctl reload >/dev/null
   nier-restart-shell

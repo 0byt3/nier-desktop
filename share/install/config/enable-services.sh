@@ -12,7 +12,7 @@ systemctl enable NetworkManager.service
 # Mirrors the systemd-networkd-wait-online mask in install/hardware/network.sh.
 systemctl mask NetworkManager-wait-online.service
 systemctl enable power-profiles-daemon.service
-systemctl enable gdm.service
+systemctl enable --force greetd.service
 # Kill one runaway app scope instead of letting reclaim thrashing take the
 # whole session down. [Install] pulls in systemd-oomd.socket via Also=, which
 # is what the user manager reports app.slice candidacy over.

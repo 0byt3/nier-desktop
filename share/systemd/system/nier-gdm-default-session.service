@@ -1,8 +1,0 @@
-[Unit]
-Description=Assign the Nier GDM session to users that have no session set
-After=accounts-daemon.service
-Documentation=file:///usr/local/share/nier
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/share/nier/bin/nier-gdm-default-session

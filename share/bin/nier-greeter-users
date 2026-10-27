@@ -1,0 +1,18 @@
+#!/usr/bin/python3
+# nier:summary=List local desktop users for the login screen
+# nier:hidden=true
+import json
+import pwd
+import re
+from pathlib import Path
+
+minimum = 1000
+for line in Path('/etc/login.defs').read_text().splitlines():
+    match = re.match(r'^\s*UID_MIN\s+(\d+)', line)
+    if match:
+        minimum = int(match[1])
+        break
+users = sorted(user.pw_name for user in pwd.getpwall()
+               if minimum <= user.pw_uid < 65534
+               and user.pw_shell not in ('', '/sbin/nologin', '/usr/sbin/nologin', '/bin/false'))
+print(json.dumps(users))

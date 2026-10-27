@@ -1,0 +1,12 @@
+{
+  "background": "#1e1e2e",
+  "surface": "#161622",
+  "foreground": "#cdd6f4",
+  "muted": "#9197b1",
+  "accent": "#89b4fa",
+  "error": "#f38ba8",
+  "outline": "#45475a",
+  "fontFamily": "JetBrainsMono Nerd Font",
+  "fontSize": 12,
+  "radius": 4
+}

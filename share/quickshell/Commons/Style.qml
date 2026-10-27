@@ -29,7 +29,7 @@ import Quickshell.Io
 QtObject {
   id: root
 
-  property int cornerRadius: 0
+  property int cornerRadius: 4
   property int gapsOut: 5
 
   // ---------------------------------------------------------- state tokens

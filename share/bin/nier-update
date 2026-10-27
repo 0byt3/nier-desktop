@@ -9,6 +9,10 @@
 set -e
 
 if [[ -z ${NIER_UPDATE_LOGGED:-} ]]; then
+  if ! command -v script >/dev/null 2>&1; then
+    echo "Update logging requires util-linux-script. Install it with: sudo dnf install util-linux-script" >&2
+    exit 127
+  fi
   script_command=$(printf '%q ' "$0" "$@")
   exec env NIER_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/nier-update.log"
 fi
