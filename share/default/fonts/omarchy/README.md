@@ -1,6 +1,6 @@
 # Nier icon font
 
-The private-use glyphs in `nier.ttf` are:
+The private-use glyphs in `omarchy.ttf` are:
 
 - `U+E900` — Nier
 - `U+E901` — Pi, from <https://pi.dev/logo-auto.svg>
