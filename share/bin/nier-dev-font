@@ -7,7 +7,7 @@
 """Append monochrome SVG marks to default/fonts/nier/__NIER_TTF__.
 
 The font is a private-use icon font: the menu renders a mark by setting
-"iconFont":"omarchy" on an entry and using the glyph's codepoint as its
+"iconFont":"nier" on an entry and using the glyph's codepoint as its
 icon. Adding a mark means appending a glyph here, then pointing a menu
 entry at the codepoint this prints.
 
@@ -644,7 +644,7 @@ def main():
     print('Next:')
     if readme:
         print('  - check the new line in %s' % os.path.relpath(readme))
-    print('  - point a menu entry at it: "icon":"%s","iconFont":"omarchy"' % chr(cp))
+    print('  - point a menu entry at it: "icon":"%s","iconFont":"nier"' % chr(cp))
     print('  - bump the charset range in test/shell.d/menu-test.sh to e900-%x' % cp)
     print('  - the font is package-owned, so it reaches the desktop through an')
     print('    nier-settings release, not through nier update')
