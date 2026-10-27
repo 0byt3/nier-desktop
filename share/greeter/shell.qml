@@ -17,6 +17,7 @@ ShellRoot {
     property var auth
     property date now: new Date()
     property string powerAction: ""
+    property string powerError: ""
 
     function submit() {
         if (!Greetd.available || !auth || ui.busy) return;
@@ -49,6 +50,14 @@ ShellRoot {
         }
     }
     Process {
+        id: powerProcess
+        command: ["systemctl", "--no-ask-password", root.powerAction]
+        stderr: StdioCollector { onStreamFinished: { if (text.trim()) console.warn("Greeter power action: " + text.trim()); } }
+        onExited: function(exitCode, exitStatus) {
+            if (exitCode !== 0) root.powerError = "Unable to " + (root.powerAction === "reboot" ? "restart" : "shut down") + ". Sign in and try again.";
+        }
+    }
+    Process {
         command: ["/usr/local/share/nier/bin/nier-greeter-users"]
         running: true
         stdout: StdioCollector {
@@ -76,7 +85,7 @@ ShellRoot {
         implicitWidth: 1280
         implicitHeight: 800
         visible: true
-        Shortcut { sequence: "Escape"; onActivated: { password.clear(); root.auth.cancel(); } }
+        Shortcut { sequence: "Escape"; onActivated: { if (powerDialog.visible) powerDialog.reject(); else { password.clear(); root.auth.cancel(); } } }
 
         Rectangle {
             anchors.fill: parent
@@ -196,20 +205,28 @@ ShellRoot {
             font.family: root.style.fontFamily; font.pixelSize: 10; font.letterSpacing: 2
         }
         Row {
+            id: powerButtons
             anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 28
             spacing: 12
-            Button { text: "Restart"; flat: true; palette.buttonText: root.style.muted; font.family: root.style.fontFamily; onClicked: { root.powerAction = "reboot"; powerDialog.open(); } }
-            Button { text: "Shut down"; flat: true; palette.buttonText: root.style.muted; font.family: root.style.fontFamily; onClicked: { root.powerAction = "poweroff"; powerDialog.open(); } }
+            enabled: !root.ui.busy && !powerProcess.running
+            Button { id: restartButton; text: "Restart"; flat: true; palette.buttonText: root.style.muted; font.family: root.style.fontFamily; onClicked: { root.powerAction = "reboot"; root.powerError = ""; powerDialog.open(); } }
+            Button { id: shutdownButton; text: "Shut down"; flat: true; palette.buttonText: root.style.muted; font.family: root.style.fontFamily; onClicked: { root.powerAction = "poweroff"; root.powerError = ""; powerDialog.open(); } }
         }
-        Dialog {
+        Text {
+            anchors.right: powerButtons.right; anchors.bottom: powerButtons.top
+            width: Math.min(420, window.width - 56)
+            text: root.powerError; visible: text.length > 0
+            color: root.style.error; wrapMode: Text.WordWrap
+            font.family: root.style.fontFamily; font.pixelSize: root.style.fontSize
+        }
+        PowerConfirmation {
             id: powerDialog
-            anchors.centerIn: parent
-            modal: true
-            title: root.powerAction === "reboot" ? "Restart this computer?" : "Shut down this computer?"
-            standardButtons: Dialog.Yes | Dialog.Cancel
-            palette.window: root.style.surface; palette.windowText: root.style.foreground
-            palette.button: root.style.background; palette.buttonText: root.style.foreground
-            onAccepted: Quickshell.execDetached(["systemctl", root.powerAction])
+            anchors.fill: parent
+            z: 100
+            action: root.powerAction
+            style: root.style
+            onRejected: password.forceActiveFocus()
+            onAccepted: powerProcess.running = true
         }
     }
 }
