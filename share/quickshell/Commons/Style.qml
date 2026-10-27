@@ -6,7 +6,7 @@ import Quickshell
 import Quickshell.Io
 
 // Shared structural style tokens for the shell. Color is the palette
-// singleton; Style holds everything else themes can influence — corner
+// singleton; Style holds structural settings — corner
 // rounding, gap to screen edges, state affordances, spacing, typography
 // scale, and bar dimensions.
 //
@@ -14,13 +14,12 @@ import Quickshell.Io
 // half of Hyprland's `general:gaps_out` — Hyprland's value works well as
 // a window-to-window gap but feels too cavernous when used as the
 // distance from a panel/notification to the screen edge, so the shell
-// halves it. Themes and user Hyprland config own those values; the
-// shell picks them up by re-running `hyprctl getoption` on startup and
-// after theme IPC applies a theme.
+// halves it. User Hyprland config owns those values; the shell picks them up
+// by re-running `hyprctl getoption` on startup and during refreshes.
 //
-// Typography, spacing, and bar size come from theme/shell.toml.
+// Typography, spacing, and bar size come from ~/.config/nier/shell.toml.
 // `[font] base-size` is the rem root; every `Style.font.<token>` derives
-// from it via the scale multipliers below unless the theme pins that
+// from it via the scale multipliers below unless the user pins that
 // specific token. `[spacing] scale` multiplies shared margins, gaps,
 // padding, controls, and panel dimensions while preserving each component's
 // proportions; by default it also tracks `base-size`. `[bar]
@@ -205,7 +204,7 @@ QtObject {
   // The spacing scale is the shell equivalent of rem for margins, gaps,
   // and padding. Components keep their existing proportions by asking for
   // the old pixel value through `Style.space(px)` (or `spaceReal(px)` for
-  // fractional geometry); themes can make the shell denser or roomier
+  // fractional geometry); user settings can make the shell denser or roomier
   // with `[spacing] scale`, or pin individual tokens.
   property real spacingScale: 1.0
   property bool spacingScaleWithFont: true
@@ -381,7 +380,7 @@ QtObject {
   }
 
   // Pull typography, bar dimensions, state tokens, and spacing out of the
-  // shell.toml dict that Color already parsed. Called by Commons.Color.loadShell so
+  // shell.toml dict that Color already parsed. Called by Commons.Color.loadUserShell so
   // a single parse pass feeds both singletons.
   function applyShellValues(values) {
     var fontOut = {}
@@ -427,7 +426,7 @@ QtObject {
       }
     }
     // Keep only a 1px sanity floor. Per-token overrides aren't clamped
-    // either — a theme that wants display-large = 64 should be allowed to
+    // either — a user who wants display-large = 64 should be allowed to
     // ship it.
     if (!isFinite(nextBase) || nextBase < 1) nextBase = 1
     if (!isFinite(nextSpacingScale) || nextSpacingScale < 0) nextSpacingScale = 1.0

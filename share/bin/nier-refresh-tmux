@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# Credit: Adapted from Omarchy
-
-# nier:summary=Overwrite the user tmux config with the Nier default and reload tmux.
-
-nier-refresh-config tmux/tmux.conf
-nier-restart-tmux

@@ -1,4 +1,3 @@
-general.import = [ "~/.local/state/nier/current/theme/alacritty.toml" ]
 
 [env]
 TERM = "xterm-256color"

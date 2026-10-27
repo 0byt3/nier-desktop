@@ -79,8 +79,6 @@ run_first_run_step "install agent setup post-update hook" \
 
 run_first_run_step "enable user systemd units" \
   bash "$NIER_PATH/install/user/first-run/enable-user-units.sh"
-run_first_run_step "set GNOME theme" \
-  bash "$NIER_PATH/install/user/first-run/gnome-theme.sh"
 run_first_run_step "set GTK primary paste" \
   bash "$NIER_PATH/install/user/first-run/gtk-primary-paste.sh"
 run_first_run_step "apply speaker tuning" \

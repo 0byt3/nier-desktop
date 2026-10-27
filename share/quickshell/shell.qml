@@ -1593,17 +1593,6 @@ ShellRoot {
       return "ok"
     }
 
-    function applyTheme(colorsB64: string, shellB64: string): string {
-      var colorsRaw = ""
-      var shellRaw = ""
-      try { colorsRaw = Qt.atob(String(colorsB64 || "")) } catch (e) { colorsRaw = "" }
-      try { shellRaw = Qt.atob(String(shellB64 || "")) } catch (e2) { shellRaw = "" }
-      Commons.Color.loadColors(colorsRaw)
-      Commons.Color.loadShell(shellRaw)
-      Style.scheduleRefresh()
-      return "ok"
-    }
-
     function rescanPlugins(): void {
       shell.reloadPlugins()
     }

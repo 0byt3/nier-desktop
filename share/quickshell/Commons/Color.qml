@@ -5,17 +5,11 @@ import Quickshell
 import Quickshell.Io
 import "BorderGeometry.js" as Geometry
 
-// Color surfaces for the shell. Foundational palette (foreground, background,
-// accent, urgent) comes from theme/colors.toml. Per-surface roles come from
-// theme/shell.toml — generated per theme from default/themed/shell.toml.tpl,
-// or shipped directly by a theme to replace the generated file. Surfaces that
-// don't appear in shell.toml fall back to the foundational palette.
+// Shell colors use built-in defaults and optional user configuration.
 QtObject {
   id: root
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string stateHome: home + "/.local/state"
-  readonly property string currentThemePath: stateHome + "/nier/current/theme"
 
   property color foreground: "#cacccc"
   property color background: "#101315"
@@ -25,7 +19,7 @@ QtObject {
 
   // Flat dictionary of "section.key" -> raw string from shell.toml.
   // Reassigning this whole property is what makes surface bindings below
-  // re-evaluate when the theme swaps; mutating it in place would not.
+  // re-evaluate when configuration changes; mutating it in place would not.
   property var shellValues: ({})
 
   function pick(key, fallback) {
@@ -134,6 +128,11 @@ QtObject {
   }
 
   function loadColors(raw) {
+    foreground = "#cacccc"
+    background = "#101315"
+    accent = "#cacccc"
+    urgent = "#a55555"
+    muted = "#707880"
     var lines = String(raw || "").split("\n")
     var foundAccent = false
     var foundMuted = false
@@ -149,7 +148,7 @@ QtObject {
       if (match[1] === "foreground") { foreground = match[2]; loadedForeground = true }
       else if (match[1] === "background") { background = match[2]; loadedBackground = true }
       // Prefer the explicit `accent` key; only fall back to color4 when the
-      // theme doesn't define a separate accent. color4 appears later in the
+      // palette doesn't define a separate accent. color4 appears later in the
       // file so the old single-property approach clobbered accent with it.
       else if (match[1] === "accent") { accent = match[2]; foundAccent = true }
       else if (match[1] === "muted") { muted = match[2]; foundMuted = true }
@@ -162,14 +161,8 @@ QtObject {
     if (!loadedBackground && color0Value.length > 0) background = color0Value
     if (!loadedForeground && color7Value.length > 0) foreground = color7Value
     if (!foundAccent && color4Value.length > 0) accent = color4Value
-    if (!foundMuted) muted = color8Value.length > 0 ? color8Value : foreground
+    if (!foundMuted && color8Value.length > 0) muted = color8Value
   }
-
-  // Last theme-supplied and user-supplied shell.toml dicts, kept separate so
-  // either can be reloaded without re-reading the other. `shellValues` is
-  // always the merge of theme (base) and user (override) — see mergeShell.
-  property var themeShellValues: ({})
-  property var userShellValues: ({})
 
   // Single TOML walker for shell.toml. Both Color (surface roles) and Style
   // (typography, spacing, bar, control states) consume the resulting dict.
@@ -199,47 +192,21 @@ QtObject {
     return parsed
   }
 
-  // Re-derive `shellValues` from theme base + user override and push it to
-  // Style. User keys win, so a machine-level `~/.config/nier/shell.toml`
-  // survives theme switches (which replace only themeShellValues).
-  function mergeShell() {
-    var merged = {}
-    for (var tk in themeShellValues) merged[tk] = themeShellValues[tk]
-    for (var uk in userShellValues) merged[uk] = userShellValues[uk]
-    shellValues = merged
-    Style.applyShellValues(merged)
-  }
-
-  function loadShell(raw) {
-    themeShellValues = parseShell(raw)
-    mergeShell()
-  }
-
   function loadUserShell(raw) {
-    userShellValues = parseShell(raw)
-    mergeShell()
+    shellValues = parseShell(raw)
+    Style.applyShellValues(shellValues)
   }
 
-  // Startup load only. Runtime theme switches push the payload explicitly
-  // through shell IPC.
+  // Optional palette configuration. No generated theme tree is consulted.
   property FileView colorsFile: FileView {
-    id: colorsFile
-    path: root.currentThemePath + "/colors.toml"
-    watchChanges: false
+    path: root.home + "/.config/nier/colors.toml"
+    watchChanges: true
     printErrors: false
     onLoaded: root.loadColors(text())
+    onFileChanged: reload()
+    onLoadFailed: root.loadColors("")
   }
-  property FileView shellFile: FileView {
-    id: shellFile
-    path: root.currentThemePath + "/shell.toml"
-    watchChanges: false
-    printErrors: false
-    onLoaded: root.loadShell(text())
-    onLoadFailed: root.loadShell("")
-  }
-  // Machine-level override, layered on top of whatever theme is active. This
-  // is where `nier display text size` writes `[font] base-size`. Watched so the
-  // CLI takes effect live without restarting the shell; absent by default.
+  // User shell controls include font sizes, spacing, and bar appearance.
   property FileView userShellFile: FileView {
     id: userShellFile
     path: root.home + "/.config/nier/shell.toml"

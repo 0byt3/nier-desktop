@@ -1,5 +1,4 @@
 # Credit: Adapted from Omarchy
-run_logged "$NIER_INSTALL/user/theme.sh"
 run_logged "$NIER_INSTALL/user/chromium.sh"
 run_logged "$NIER_INSTALL/user/git.sh"
 run_logged "$NIER_INSTALL/user/xcompose.sh"

@@ -536,11 +536,3 @@ if ! hermes_prompt_ready; then
 fi
 
 settle_path || exit 1
-
-# Only a running Hermes can be told which skin to show; a unit outlives this
-# terminal and reports to the journal.
-if [[ $set_up == "true" ]]; then
-  echo "Matching Hermes to the current theme once it is set up..."
-  systemctl --user stop nier-hermes-theme.service 2>/dev/null || true
-  systemd-run --user --quiet --collect --unit=nier-hermes-theme nier-theme-set-hermes --wait
-fi

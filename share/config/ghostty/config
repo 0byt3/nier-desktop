@@ -1,5 +1,3 @@
-# Dynamic theme colors
-config-file = ?"~/.local/state/nier/current/theme/ghostty.conf"
 
 # Font
 font-family = "JetBrainsMono Nerd Font"

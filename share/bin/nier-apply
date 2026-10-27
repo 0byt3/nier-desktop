@@ -18,7 +18,7 @@ the login session actually read.
 
 The RPM only installs vendor files:
   /usr/local/bin/nier
-  /usr/local/share/nier/{hyprland,quickshell,bin,config,themes,...}
+  /usr/local/share/nier/{hyprland,quickshell,bin,config,...}
 
 This command activates them.
 

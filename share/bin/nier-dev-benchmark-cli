@@ -107,7 +107,7 @@ run_case "nier --help" "$CLI" --help
 run_case "nier commands" "$CLI" commands
 run_case "nier commands --json" "$CLI" commands --json
 run_case "nier commands --all --json" "$CLI" commands --all --json
-run_case "nier theme set --help" "$CLI" theme set --help
+run_case "nier background set --help" "$CLI" background set --help
 run_case "nier screenshot --help" "$CLI" screenshot --help
 run_case "nier restart --help" "$CLI" restart --help
-run_case "nier theme current" "$CLI" theme current
+run_case "nier background current" "$CLI" background current

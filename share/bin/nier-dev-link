@@ -34,14 +34,10 @@ after reboot. This intentionally does not rewrite the running Hyprland,
 systemd, shell, or app-launcher environment; reboot to make every layer agree.
 
 Affects only \$NIER_PATH-resolved trees: bin/, default/, shell/,
-themes/, applications/, config/. Files installed at fixed system paths
+applications/, config/. Files installed at fixed system paths
 (/etc/, /usr/lib/systemd/, udev rule bodies, /etc/skel after user
 creation) are NOT covered — for those, use nier-dev-pkg-test to build
 and install the package from the checkout.
-
-The Plymouth and SDDM themes under /usr/share are the exception: nier
-plymouth set and nier refresh plymouth republish them from the checkout,
-reading this link's authorization out of the root-owned /etc/nier.conf.
 
 Also writes $sudoers_file so sudo resolves nier-*
 from the checkout instead of the packaged copies. That part takes effect

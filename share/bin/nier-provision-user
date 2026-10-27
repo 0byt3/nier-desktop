@@ -15,7 +15,7 @@ Runs the per-user setup steps that /etc/skel can't seed:
 dev-aware skill symlinks, xdg-user-dirs + gtk bookmarks (need \$HOME),
 default browser/mailto, and install/user/all.sh.
 
-For shipped configs see /etc/skel (new users) and nier-reinstall-configs
+For shipped configs see /etc/skel (new users) and nier apply
 (existing users explicitly resyncing).
 
 --first-install is used by the ISO in the target chroot. It marks shipped
@@ -117,7 +117,7 @@ done
 
 source "$NIER_INSTALL/user/all.sh"
 
-nier-refresh-applications
+nier-install-applications
 env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop 2>/dev/null || true
 
 if (( first_install )); then

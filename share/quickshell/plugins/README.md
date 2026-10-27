@@ -52,8 +52,7 @@ and customization schema.
 ## Image picker
 
 Fullscreen image-grid selector overlay. Used by `nier-menu-images`
-(wallpaper picker) and `nier-theme-switcher` (theme picker) and any
-other caller that wants to present a directory of images with previews.
+(image picker) and any other caller that wants to present a directory of images with previews.
 
 Two ways to drive it:
 
@@ -113,7 +112,3 @@ bash expressions in a single batched subprocess, and executes the
 selected `action:` string directly via `Quickshell.execDetached`. The
 long-running shell process keeps the parsed menu in memory, so the
 keybind → IPC → visible path costs ~30ms cold.
-
-## Coming soon
-
-- `nier.theme-switcher` — folds theme switching into the shell.

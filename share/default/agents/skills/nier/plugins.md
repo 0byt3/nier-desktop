@@ -15,7 +15,7 @@ $NIER_PATH/config/nier/shell.json  # Canonical defaults
 The shell hot-reloads `shell.json` on save — no restart needed for layout
 changes. `idle.screensaver` and `idle.lock` are seconds since user idle began.
 
-**Commands:** `nier restart shell`, `nier refresh shell`
+**Command:** `nier restart shell`
 
 ## Bar Layout
 

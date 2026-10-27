@@ -70,7 +70,7 @@
   "trigger.tests.disk-speedtest": {"icon":"󰋊","label":"Disk Speed Test","action":"nier-shell shell summon nier.disk-speedtest"},
 
   // Style
-  "style.background": {"icon":"","label":"Background","aliases":["background","wallpaper"],"action":"background=$(nier-theme-bg-switcher); [[ -n $background ]] && nier-theme-bg-set \"$background\""},
+  "style.background": {"icon":"","label":"Background","aliases":["background","wallpaper"],"action":"background=$(nier-background-switcher); [[ -n $background ]] && nier-background-set \"$background\""},
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.bar": {"icon":"󰍜","label":"Menu Bar"},
   "style.bar.position": {"icon":"","label":"Position"},

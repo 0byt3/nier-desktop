@@ -4,7 +4,7 @@
 
 # nier:summary=Control the Nier menu (toggle / summon / close / refresh)
 # nier:args=[toggle|summon|close|refresh|ping] [route]
-# nier:examples=nier menu | nier menu toggle system | nier menu summon style.theme | nier menu refresh
+# nier:examples=nier menu | nier menu toggle system | nier menu summon style.background | nier menu refresh
 
 # Thin wrapper around the standard plugin IPC surface. The menu is the
 # first-party `nier.menu` plugin; routes are passed as JSON payload.

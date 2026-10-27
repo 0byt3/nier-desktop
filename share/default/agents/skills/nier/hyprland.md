@@ -23,11 +23,10 @@ defaults, so overrides go here:
 - Use `hyprctl reload` to force reload
 - After ANY Hyprland Lua config change, validate with `hyprctl reload` followed by `hyprctl configerrors`
 - If `hyprctl configerrors` reports errors, address them and rerun validation until clean or until a real blocker is identified
-- Use `nier refresh hyprland` to reset the Lua config files to defaults
 
 The two `.conf` files are read by separate processes, so `hyprctl` neither
 applies nor validates them:
-- `hyprsunset.conf` (night light): apply changes with `nier restart hyprsunset`; reset with `nier refresh hyprsunset`
+- `hyprsunset.conf` (night light): apply changes with `nier restart hyprsunset`
 - `xdph.conf` (screen-sharing portal): applies when the portal restarts, e.g. on next login
 
 ## Keybindings

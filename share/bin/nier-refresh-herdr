@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# Credit: Adapted from Omarchy
-
-# nier:summary=Overwrite the user herdr config with the Nier default and reload herdr.
-
-nier-refresh-config herdr/config.toml
-nier-restart-herdr

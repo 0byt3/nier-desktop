@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Credit: Adapted from Omarchy
-# nier:summary=Open a file picker to select and set a background image
-# nier:group=theme
-# nier:name=bg-switcher
+# nier:summary=Select a background image and print its path
+# nier:group=background
+# nier:name=select
 # nier:aliases=nier background
 
 set -euo pipefail

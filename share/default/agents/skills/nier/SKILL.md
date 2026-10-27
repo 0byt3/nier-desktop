@@ -5,7 +5,7 @@ description: >
   Use when editing ~/.config/hypr/, ~/.config/nier/,
   ~/.config/alacritty/, ~/.config/foot/, ~/.config/kitty/, or ~/.config/ghostty/.
   Triggers: Hyprland, window rules, animations, keybindings, monitors, gaps, borders,
-  blur, opacity, nier-shell, bar, terminal config, themes, background,
+  blur, opacity, nier-shell, bar, terminal config, background,
   night light, idle, lock screen, screenshots, reminders, layer rules, workspace
   settings, display config, and user-facing nier commands. Excludes Nier
   source development through `nier dev link` workflows.
@@ -29,7 +29,7 @@ It is not for contributing to Nier source code.
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, backgrounds, fonts, appearance changes
-- User-facing `nier` commands (`nier theme ...`, `nier refresh ...`, `nier restart ...`, etc.)
+- User-facing `nier` commands (`nier background ...`, `nier restart ...`, etc.)
 - Screenshots, screen recording, reminders, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
@@ -43,7 +43,7 @@ matching guide before starting:
 
 - [`hyprland.md`](hyprland.md) - keybindings, monitors, window rules, and other Hyprland config
 - [`plugins.md`](plugins.md) - the Nier shell: bar layout, widgets, plugins, idle behavior
-- [`theming.md`](theming.md) - themes, backgrounds, and fonts
+- [`appearance.md`](appearance.md) - direct appearance configuration, backgrounds, and fonts
 - [`hooks.md`](hooks.md) - automation hooks that run on system events
 - [`capture.md`](capture.md) - screenshots, screen recordings, OCR text capture, and file sharing
 - [`contributing.md`](contributing.md) - reporting Nier bugs and submitting fixes upstream
@@ -61,7 +61,6 @@ overwritten on the next `nier update`.
 /usr/local/share/nier/     # READ-ONLY - NEVER EDIT (reading is OK)
 ├── bin/                    # Command source (packaged binaries are on PATH)
 ├── config/                 # Default config templates
-├── themes/                 # Stock themes
 ├── default/                # System defaults
 ├── shell/                  # Nier shell source and defaults
 ├── migrations/             # Update migrations
@@ -69,14 +68,12 @@ overwritten on the next `nier update`.
 ```
 
 **Reading `/usr/local/share/nier/` is SAFE and useful** - do it freely to:
-- Understand how nier commands work: `nier theme set --help` or `cat $(which nier-theme-set)`
+- Understand how nier commands work: `nier background set --help` or `cat $(which nier-background-set)`
 - See default configs before customizing: `cat "$NIER_PATH/config/nier/shell.json"`
-- Check stock theme files to copy for customization
 - Reference default hyprland settings: `cat /usr/local/share/nier/default/hypr/*`
 
 **Always use these safe locations instead:**
 - `~/.config/` - User configuration (safe to edit)
-- `~/.config/nier/themes/<custom-name>/` - Custom themes
 - `~/.config/nier/hooks/` - Custom automation hooks
 
 If the request is to develop Nier itself, this skill is out of scope. Follow repository development instructions instead of this skill.
@@ -115,18 +112,17 @@ Nier ships a single `nier` CLI that dispatches to all `nier-*` binaries via `nie
 nier commands
 
 # Show the commands inside a group
-nier theme --help
-nier refresh --help
+nier background --help
 nier restart --help
 
 # Show help for a specific command (does not execute it)
-nier theme set --help
+nier background set --help
 
 # Machine-readable listing (binary, route, summary, args, aliases)
 nier commands --json
 
 # Read a command's source to understand it
-cat $(which nier-theme-set)
+cat $(which nier-background-set)
 ```
 
 ### Command Groups
@@ -135,13 +131,12 @@ Run `nier --help` for the full list. The most common groups:
 
 | Group | Purpose | Example |
 |-------|---------|---------|
-| `nier refresh` | Reset config to defaults (backs up first) | `nier refresh shell` |
 | `nier restart` | Restart a service/app | `nier restart shell` |
 | `nier toggle` | Toggle feature on/off | `nier toggle nightlight` |
-| `nier theme` | Theme management | `nier theme set <name>` |
+| `nier background` | Wallpaper selection | `nier background set <image>` |
 | `nier bar` | Bar layout and widgets | `nier bar move nier.clock --section right` |
 | `nier plugin` | Manage/clone shell plugins | `nier plugin clone nier.clock` |
-| `nier hook` | Install automation hooks | `nier hook install theme-set <script>` |
+| `nier hook` | Install automation hooks | `nier hook install post-update <script>` |
 | `nier install` | Install optional software / packages | `nier install docker dbs` |
 | `nier launch` | Launch apps | `nier launch browser` |
 | `nier capture` | Screenshots and recordings | `nier capture screenshot` |
@@ -199,21 +194,6 @@ cp ~/.config/hypr/bindings.lua ~/.config/hypr/bindings.lua.bak.$(date +%s)
 # - Terminals: apply with `nier restart terminal` (reloads running terminals; foot picks changes up in new windows)
 ```
 
-### Reset to Defaults -- ALWAYS SEEK USER CONFIRMATION BEFORE RUNNING
-
-When customizations go wrong:
-
-```bash
-# Reset specific config (creates backup automatically)
-nier refresh shell
-nier refresh hyprland
-
-# The refresh command:
-# 1. Backs up current config with timestamp
-# 2. Copies default from $NIER_PATH/config/
-# 3. Restarts the component where the refresh needs it (e.g. `refresh shell`)
-```
-
 ## System Commands
 
 ```bash
@@ -233,16 +213,8 @@ nier system reboot           # Reboot
 # Get debug information (ALWAYS use these flags to avoid interactive prompts)
 nier debug --no-sudo --print
 
-# Reset specific config to defaults
-nier refresh <app>
-
-# Refresh specific config file
-# config-file path is relative to ~/.config/
-# eg. `nier refresh config hypr/hyprland.lua` will refresh ~/.config/hypr/hyprland.lua
-nier refresh config <config-file>
-
-# Full reinstall of configs (nuclear option)
-nier reinstall
+# Initial deployment seeds missing configs without replacing existing files
+nier apply
 ```
 
 ## Decision Framework
@@ -251,7 +223,7 @@ When user requests system changes:
 
 1. **Is it a stock nier command?** Use it directly
 2. **Is it a config edit?** Edit in `~/.config/`, never `/usr/local/share/nier/`
-3. **Is it a theme customization?** Follow [`theming.md`](theming.md); create a NEW custom theme directory
+3. **Is it appearance customization?** Follow [`appearance.md`](appearance.md); edit the relevant user configuration
 4. **Is it automation?** Follow [`hooks.md`](hooks.md); use `nier hook install` and the hook `.d` directories
 5. **Is it a package install?** Use `nier pkg add <pkgs...>` (or `nier pkg aur add <pkgs...>` for AUR-only packages)
 6. **Is it built-in shell/plugin code?** Follow [`plugins.md`](plugins.md); clone it with `nier plugin clone`, never edit the packaged copy
@@ -271,13 +243,13 @@ nier reminder clear
 ## Out of Scope
 
 This skill intentionally does not cover Nier source development. Do not use this skill for:
-- Editing files in `/usr/local/share/nier/` (`bin/`, `config/`, `default/`, `shell/`, `themes/`, `migrations/`, etc.)
+- Editing files in `/usr/local/share/nier/` (`bin/`, `config/`, `default/`, `quickshell/`, `migrations/`, etc.)
 - Creating or editing migrations
 - Running `nier dev ...` commands
 
 ## Example Requests
 
-- "Change my theme to catppuccin" -> `nier theme set catppuccin`
+- "Change my wallpaper" -> `nier background set <image-path>`
 - "Add a keybinding for Super+E to open file manager" -> Check existing bindings first, call `hl.unbind` if needed, then `o.bind` in `~/.config/hypr/bindings.lua`
 - "Configure my external monitor" -> Edit `~/.config/hypr/monitors.lua`
 - "Make the window gaps smaller" -> Edit `~/.config/hypr/looknfeel.lua`
@@ -285,10 +257,12 @@ This skill intentionally does not cover Nier source development. Do not use this
 - "Set a reminder to pickup jack in 15 minutes" -> `nier reminder 15 "Pickup Jack"`
 - "Show my reminders" -> `nier reminder show`
 - "Clear all reminders" -> `nier reminder clear`
-- "Customize the catppuccin theme colors" -> Overlay: put an edited `colors.toml` in `~/.config/nier/themes/catppuccin/`, then re-apply the theme (see `theming.md`)
-- "Run a script every time I change themes" -> Install it with `nier hook install theme-set <script>`
 - "Change how workspace labels are rendered" -> Clone `nier.workspaces`, which switches the bar to `<username>.workspaces`, then edit the clone
 - "Lock after ten minutes" -> Set `idle.lock` to `600` in `~/.config/nier/shell.json`
-- "Reset shell/bar to defaults" -> `nier refresh shell`
 - "Record my screen" -> `nier screenrecord --fullscreen`, then `nier screenrecord --stop-recording` (see `capture.md`)
 - "Report this bug to Nier" -> Gather diagnostics and a capture of the problem, then file it (see `contributing.md`)
+
+Nier does not provide browser installation helpers, release channels, Plymouth
+themes, Omarchy theme switching, or config reset/reinstall commands. Do not
+recommend these removed features. Browser launching and default-browser selection
+remain available. Use the normal package manager for optional applications.

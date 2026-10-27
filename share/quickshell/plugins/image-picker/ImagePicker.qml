@@ -15,7 +15,7 @@ Item {
   // Injected by nier-shell; defaults to the session NIER_PATH.
   property string nierPath: Quickshell.env("NIER_PATH")
   property string stateHome: Quickshell.env("HOME") + "/.local/state"
-  property string imageDirs: Quickshell.env("NIER_IMAGE_SELECTOR_DIRS") || Quickshell.env("NIER_IMAGE_SELECTOR_DIR") || Quickshell.env("NIER_STOCK_BACKGROUNDS_DIR") || (stateHome + "/nier/current/theme/backgrounds")
+  property string imageDirs: Quickshell.env("NIER_IMAGE_SELECTOR_DIRS") || Quickshell.env("NIER_IMAGE_SELECTOR_DIR") || Quickshell.env("NIER_STOCK_BACKGROUNDS_DIR") || (Quickshell.env("HOME") + "/Pictures/Wallpapers")
   property string imageRows: ""
   property string loadedImageRows: ""
   property string selectionFile: Quickshell.env("NIER_IMAGE_SELECTOR_SELECTION_FILE") || Quickshell.env("NIER_BACKGROUND_SELECTION_FILE")

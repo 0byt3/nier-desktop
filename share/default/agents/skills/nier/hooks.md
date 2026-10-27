@@ -1,7 +1,6 @@
 # Automation Hooks
 
-Read this before setting up scripts that run on system events (theme changes,
-updates, boot, low battery, etc.).
+Read this before setting up scripts that run on system events (updates, boot, low battery, etc.).
 
 Hooks live in `~/.config/nier/hooks/<name>.d/` — one directory per event,
 holding any number of independent scripts. Install with
@@ -14,15 +13,12 @@ file first, if one exists.
 ├── battery-low.d/          # Low battery (percentage in $1)
 ├── font-set.d/             # After font change (font name in $1)
 ├── post-boot.d/            # After the desktop starts
-├── post-update.d/          # During `nier update`, after system packages and migrations
-├── pre-refresh-pacman.d/   # Before `nier refresh pacman` re-syncs packages
-└── theme-set.d/            # After theme change (theme slug in $1)
+└── post-update.d/          # During `nier update`, after package updates
 ```
 
 Example hook script:
 ```bash
 #!/bin/bash
-THEME_NAME=$1
-echo "Theme changed to: $THEME_NAME"
+echo "Package updates finished"
 # Add custom actions here
 ```

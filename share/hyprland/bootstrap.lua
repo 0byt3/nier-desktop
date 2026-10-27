@@ -5,7 +5,6 @@ local home = os.getenv("HOME")
 local reload_prefixes = {
   "default.hypr",
   "hypr",
-  "nier.current.theme",
 }
 
 local function should_reload_module(module)
@@ -29,8 +28,8 @@ for _, module in ipairs(modules_to_reload) do
   package.loaded[module] = nil
 end
 
--- Load generated state from ~/.local/state, user modules from ~/.config, and
--- Nier defaults from $NIER_PATH.
+-- Load generated workspace state from ~/.local/state, user modules from
+-- ~/.config, and Nier defaults from $NIER_PATH.
 package.path = home
   .. "/.local/state/?.lua;"
   .. home

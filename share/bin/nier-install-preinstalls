@@ -10,7 +10,7 @@ if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI 
 
   # Recreates the shipped .desktop launchers (web apps and TUIs) and the mise stubs
   # that back claude, gh, opencode, and the rest of the agents
-  nier-refresh-applications
+  nier-install-applications
 
   # Mirrors the list in nier-remove-preinstalls; both track nier-base.packages
   if ! nier-pkg-add \

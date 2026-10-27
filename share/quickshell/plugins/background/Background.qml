@@ -6,7 +6,6 @@ import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
 import qs.Commons
-import qs.Commons as Commons
 import qs.Ui
 
 Item {
@@ -23,9 +22,6 @@ Item {
   property bool finishingTransition: false
   property int backgroundVersion: 0
   property int revealStartedVersion: -1
-  property int pendingThemeVersion: -1
-  property string pendingColorsRaw: ""
-  property string pendingShellRaw: ""
   property real revealProgress: 1
 
   function imageUrl(path) {
@@ -65,40 +61,11 @@ Item {
     revealProgress = 0
   }
 
-  function setPendingTheme(colorsB64, shellB64) {
-    pendingColorsRaw = Util.decodeBase64(colorsB64)
-    pendingShellRaw = Util.decodeBase64(shellB64)
-    pendingThemeVersion = backgroundVersion
-    pendingThemeFallbackTimer.restart()
-  }
-
-  function applyPendingTheme() {
-    // Background polling can advance backgroundVersion while a theme switch is
-    // pending; the latest theme payload should still apply.
-    if (pendingThemeVersion < 0) return
-    pendingThemeFallbackTimer.stop()
-    Commons.Color.loadColors(pendingColorsRaw)
-    // Commons.Color.loadShell also refreshes Style so the type scale flips with the
-    // background reveal instead of waiting for a separate reload path.
-    Commons.Color.loadShell(pendingShellRaw)
-    Style.scheduleRefresh()
-    pendingThemeVersion = -1
-    pendingColorsRaw = ""
-    pendingShellRaw = ""
-  }
-
-  function transitionBackgroundWithTheme(fromPath, path, finalPath, colorsB64, shellB64) {
-    transitionBackground(fromPath, path, finalPath, false, true)
-    setPendingTheme(colorsB64, shellB64)
-    if (!incomingBackground || revealProgress >= 1) applyPendingTheme()
-  }
-
   function startReveal(panel) {
     if (!incomingBackground) return
     panel.maskReady = true
     if (revealStartedVersion === backgroundVersion) return
     revealStartedVersion = backgroundVersion
-    applyPendingTheme()
     revealAnimation.restart()
   }
 
@@ -106,19 +73,9 @@ Item {
     if (!bgSwitchProc.running) bgSwitchProc.running = true
   }
 
-  function openThemeSwitcher() {
-    if (!themeSwitchProc.running) themeSwitchProc.running = true
-  }
-
   Process {
     id: bgSwitchProc
-    command: ["bash", "-c", "background=$(nier-theme-bg-switcher); [[ -n $background ]] && nier-theme-bg-set \"$background\""]
-    onExited: root.refreshBackground()
-  }
-
-  Process {
-    id: themeSwitchProc
-    command: ["bash", "-c", "theme=$(nier-theme-switcher); [[ -n $theme ]] && nier-theme-set \"$theme\" >/dev/null 2>&1 &"]
+    command: ["bash", "-c", "background=$(nier-background-switcher); [[ -n $background ]] && nier-background-set \"$background\""]
     onExited: root.refreshBackground()
   }
 
@@ -148,17 +105,6 @@ Item {
     function transition(fromPath: string, path: string): void {
       root.transitionBackground(fromPath, path, path, false, false)
     }
-
-    function themeTransition(fromPath: string, path: string, finalPath: string, colorsB64: string, shellB64: string): void {
-      root.transitionBackgroundWithTheme(fromPath, path, finalPath, colorsB64, shellB64)
-    }
-  }
-
-  Timer {
-    id: pendingThemeFallbackTimer
-    interval: 300
-    repeat: false
-    onTriggered: root.applyPendingTheme()
   }
 
   NumberAnimation {
@@ -313,10 +259,9 @@ Item {
 
       MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        acceptedButtons: Qt.LeftButton
         onDoubleClicked: function(mouse) {
-          if (mouse.button === Qt.RightButton) root.openThemeSwitcher()
-          else root.openSelector()
+          root.openSelector()
           mouse.accepted = true
         }
       }

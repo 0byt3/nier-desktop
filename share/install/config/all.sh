@@ -1,5 +1,4 @@
 # Credit: Adapted from Omarchy
-run_logged "$NIER_INSTALL/config/theme-system.sh"
 run_logged "$NIER_INSTALL/config/browser-policy.sh"
 run_logged "$NIER_INSTALL/config/increase-lockout-limit.sh"
 run_logged "$NIER_INSTALL/config/lockscreen-pam.sh"

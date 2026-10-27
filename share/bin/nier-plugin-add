@@ -97,7 +97,7 @@ fi
 
 # Refuse a URL that names a git option or a transport helper before cloning, so
 # an untrusted URL cannot run a command before the plugin is validated or
-# enabled. The check is shared with nier-theme-install and explains itself; a
+# enabled. The checker explains itself; a
 # missing checker leaves this non-zero, which refuses the URL rather than
 # cloning it.
 nier-git-url-check "$url" || exit 1

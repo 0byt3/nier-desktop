@@ -4,10 +4,10 @@
 
 # nier:summary=Set the current background image
 # nier:args=<path-to-image>
-# nier:examples=nier theme bg set ~/Pictures/background.png
+# nier:examples=nier background set ~/Pictures/background.png
 
-if [[ -z $1 ]]; then
-  echo "Usage: nier-theme-bg-set <path-to-image>" >&2
+if [[ -z ${1:-} ]]; then
+  echo "Usage: nier-background-set <path-to-image>" >&2
   exit 1
 fi
 
@@ -20,6 +20,7 @@ if [[ ! -f $BACKGROUND ]]; then
 fi
 
 # Create symlink to the new background
+mkdir -p "$(dirname "$CURRENT_BACKGROUND_LINK")"
 ln -nsf "$BACKGROUND" "$CURRENT_BACKGROUND_LINK"
 
 # Update the live shell background immediately when it is running. The

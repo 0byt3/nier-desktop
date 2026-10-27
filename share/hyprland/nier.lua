@@ -1,5 +1,5 @@
 -- Credit: Adapted from Omarchy
--- Nier Hyprland setup: helpers, defaults, and current theme overrides.
+-- Nier Hyprland setup: helpers and defaults.
 
 require("default.hypr.helpers")
 local require_optional = require("default.hypr.require_optional")
@@ -18,6 +18,3 @@ require("default.hypr.envs")
 require("default.hypr.looknfeel")
 require("default.hypr.input")
 require("default.hypr.windows")
-
--- Current theme overrides.
-require_optional.module("nier.current.theme.hyprland")

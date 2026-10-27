@@ -3,7 +3,7 @@
 # Credit: Adapted from Omarchy
 
 # nier:summary=Show current background
-# nier:examples=nier theme bg current
+# nier:examples=nier background current
 
 BACKGROUND_PATH=$(readlink -f "$HOME/.local/state/nier/current/background" 2>/dev/null)
 

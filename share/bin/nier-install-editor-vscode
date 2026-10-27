@@ -2,7 +2,7 @@
 
 # Credit: Adapted from Omarchy
 
-# nier:summary=Install VS Code and configure Nier defaults for secrets, updates, and theme
+# nier:summary=Install VS Code and configure Nier defaults for secrets and updates
 
 echo "Installing VSCode..."
 nier-pkg-add visual-studio-code-bin
@@ -24,8 +24,5 @@ EOF
 
 # Ensure VSC's own auto-update feature is turned off
 printf '{\n  "update.mode": "none"\n}\n' > ~/.config/Code/User/settings.json
-
-# Apply Nier theme to VSCode
-nier-theme-set-vscode
 
 setsid uwsm-app -- gtk-launch code >/dev/null 2>&1 &
