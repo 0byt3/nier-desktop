@@ -366,6 +366,15 @@ apply_system() {
   # shellcheck source=/usr/local/share/nier/lib/nier-btrfs.sh
   source "${share}/lib/nier-btrfs.sh"
 
+  log "Configuring Fedora repositories and supported hardware packages"
+  source "${share}/lib/nier-rpmfusion.sh"
+  nier_rpmfusion_hardware_repo
+  source "${share}/lib/nier-tuxedo.sh"
+  nier_tuxedo_backlight
+  nier_tuxedo_ethernet
+  bash -e "${share}/install/hardware/nvidia.sh"
+  bash -e "${share}/install/hardware/fix-bcm43xx.sh"
+
   log "Installing session integration from ${share}"
 
   install_file "${share}/default/profile.d/nier.sh" /etc/profile.d/nier.sh 0644
