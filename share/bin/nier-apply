@@ -2,7 +2,7 @@
 
 # Credit: Adapted from Omarchy
 
-# nier:summary=Deploy Hyprland, Quickshell, and desktop environment configs from the packaged Nier share tree
+# nier:summary=Deploy Bash, Hyprland, Quickshell, and desktop environment configs from the packaged Nier share tree
 # nier:group=apply
 # nier:args=[--force] [--system] [--system-wide|-s] [--all]
 # nier:examples=nier apply | nier apply --force | sudo nier apply --system | sudo nier apply --system-wide | sudo nier apply -s | nier apply --all
@@ -13,8 +13,8 @@ usage() {
   cat <<'USAGE'
 Usage: nier apply [--force] [--system] [--system-wide|-s] [--all]
 
-Copy packaged Nier desktop files into the places Hyprland, Quickshell, and
-the login session actually read.
+Copy packaged Nier desktop and Bash files into the places the shell,
+Hyprland, Quickshell, and login session actually read.
 
 The RPM only installs vendor files:
   /usr/local/bin/nier
@@ -180,11 +180,26 @@ seed_shell_into() {
   local home=$2
   local force=$3
   local basic_cli_src=${share}/basic-cli/bash
-  local basic_cli_dest=${home}/.config/basic-cli
+  local basic_cli_dest=${4:-${home}/.config}/basic-cli
 
   [[ -d ${basic_cli_src} ]] || return 0
 
   seed_file "${basic_cli_src}/.bashrc" "${home}/.bashrc" "${force}"
+  seed_file "${basic_cli_src}/.bashrc" "${basic_cli_dest}/bashrc" "${force}"
+  # Existing users already have a bashrc. Preserve their content and add a
+  # managed include once, while fresh/forced installs use the full Nier bashrc.
+  if ! cmp -s "${basic_cli_src}/.bashrc" "${home}/.bashrc" &&
+    ! grep -qF '# BEGIN Nier Bash customizations' "${home}/.bashrc"; then
+    cp -f "${home}/.bashrc" "${home}/.bashrc.bak.$(date +%s)"
+    cat >>"${home}/.bashrc" <<'BASHRC'
+
+# BEGIN Nier Bash customizations
+if [[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/basic-cli/bashrc ]]; then
+  source "${XDG_CONFIG_HOME:-$HOME/.config}/basic-cli/bashrc"
+fi
+# END Nier Bash customizations
+BASHRC
+  fi
   seed_file "${basic_cli_src}/.bash_profile" "${home}/.bash_profile" "${force}"
   seed_file "${basic_cli_src}/.bash_logout" "${home}/.bash_logout" "${force}"
   seed_file "${basic_cli_src}/.inputrc" "${home}/.inputrc" "${force}"
@@ -486,12 +501,14 @@ apply_user() {
   log "Deploying desktop configs from ${share} into ${config_home}"
 
   seed_desktop_into "${share}" "${home}" "${force}" "${config_home}" "${state_home}"
+  seed_shell_into "${share}" "${home}" "${force}" "${config_home}"
   enable_units_user
 
-  log "User desktop configs deployed."
+  log "User desktop and Bash configs deployed."
   log "  Hyprland overlay:  ${config_home}/hypr"
   log "  Quickshell tree:   ${share}/quickshell  (via NIER_PATH, also linked as ${share}/shell)"
   log "  Shell settings:    ${config_home}/nier/shell.json"
+  log "  Bash settings:     ${home}/.bashrc and ${config_home}/basic-cli"
 }
 
 force=0

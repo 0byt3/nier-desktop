@@ -10,13 +10,16 @@ The RPM installs `/usr/local/bin/nier` and `/usr/local/share/nier`. Its post-ins
 script runs `nier apply --system`, which installs system/session integration and,
 on supported Btrfs installations, snapshot boot support.
 
-- `nier apply`: seed missing user configuration files.
+- `nier apply`: deploy desktop and Bash customizations for the current user.
 - `sudo nier apply --system`: install system/session integration.
 - `sudo nier apply --system-wide`: also seed `/etc/skel` and configure the default
   Nier defaults for current and future users.
 - `nier commands`: discover supported commands.
 
-Existing user configs are preserved by default. The deployment command's explicit
+Existing user configs are preserved by default. For an existing `.bashrc`, apply
+creates a backup and appends a single source block for the Bash customizations
+under `${XDG_CONFIG_HOME:-~/.config}/basic-cli`. New terminals load them; an
+already-open terminal can run `source ~/.bashrc`. The deployment command's explicit
 `--force` option replaces them with backups; it is intended for deliberate
 deployment, not an automatic config reset workflow.
 
