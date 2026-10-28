@@ -1,5 +1,18 @@
 # Credit: Adapted from Omarchy
 notify_update() {
+  local status=0
+  # DNF uses a distinct failure status: an unavailable repository must not be
+  # mistaken for either pending updates or a successfully checked system.
+  nier-update-available >/dev/null || status=$?
+  case ${status} in
+    0) ;;
+    1)
+      nier-notification-dismiss "Update System" || true
+      return 0
+      ;;
+    *) return "${status}" ;;
+  esac
+
   nier-notification-send -u critical -g  "Update System" "Click to update the system." \
     --exec nier-launch-floating-terminal-with-presentation nier-update
 }

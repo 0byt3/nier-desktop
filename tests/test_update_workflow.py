@@ -53,6 +53,39 @@ class UpdateWorkflowTests(unittest.TestCase):
                 else:
                     self.assertEqual(status_file.read_text(), str(status))
 
+    def test_first_run_update_notification_requires_available_updates(self):
+        self.executable('nm-online', 'exit 0\n')
+        self.executable('nier-update-available', 'exit "$UPDATE_STATUS"\n')
+        events = self.directory / 'events'
+        self.environment['EVENTS'] = str(events)
+        self.executable('nier-notification-send', 'printf "send:%s\\n" "$*" >> "$EVENTS"\n')
+        self.executable('nier-notification-dismiss', 'printf "dismiss:%s\\n" "$*" >> "$EVENTS"\n')
+        for status, expected in ((0, 'send:'), (1, 'dismiss:Update System'), (2, '')):
+            with self.subTest(status=status):
+                events.unlink(missing_ok=True)
+                self.environment['UPDATE_STATUS'] = str(status)
+                result = subprocess.run([
+                    '/bin/bash', str(ROOT / 'share/install/user/first-run/wifi.sh'),
+                ], env=self.environment, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0)
+                recorded = events.read_text() if events.exists() else ''
+                if expected:
+                    self.assertTrue(recorded.startswith(expected), recorded)
+                else:
+                    self.assertEqual(recorded, '')
+                self.assertEqual(recorded.count('send:'), int(status == 0))
+
+    def test_first_run_enabled_units_are_deployed_by_system_apply(self):
+        script = (ROOT / 'share/install/user/first-run/enable-user-units.sh').read_text()
+        units = [word for word in script.split() if word.endswith('.service')]
+        self.assertGreater(len(units), 0)
+        for unit in units:
+            with self.subTest(unit=unit):
+                deployed = ROOT / 'share/systemd/user' / unit
+                self.assertTrue(deployed.is_file(), f'{unit} is missing from system deployment')
+                self.assertEqual(deployed.read_bytes(),
+                                 (ROOT / 'share/default/systemd/user' / unit).read_bytes())
+
     def test_fedora_multiple_kernel_reboot_detection(self):
         self.environment['PATH'] += ':/usr/bin:/bin'
         self.environment['HOME'] = str(self.directory)
