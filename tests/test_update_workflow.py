@@ -53,6 +53,42 @@ class UpdateWorkflowTests(unittest.TestCase):
                 else:
                     self.assertEqual(status_file.read_text(), str(status))
 
+    def test_keybindings_invitation_is_once_only_and_retries_delivery_failure(self):
+        self.environment['PATH'] += ':/usr/bin:/bin'
+        self.environment['HOME'] = str(self.directory)
+        (self.directory / 'nier-done').symlink_to(ROOT / 'share/bin/nier-done')
+        events = self.directory / 'events'
+        self.environment['EVENTS'] = str(events)
+        self.executable('nier-notification-send',
+                        'printf "%s\\n" "$*" >> "$EVENTS"\nexit "${SEND_STATUS:-0}"\n')
+        welcome = ['/bin/bash', str(ROOT / 'share/install/user/first-run/welcome.sh')]
+        marker = self.directory / '.local/state/nier/done/keybindings-invitation'
+        self.environment['SEND_STATUS'] = '1'
+        result = subprocess.run(welcome, env=self.environment, capture_output=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(marker.exists())
+        self.environment['SEND_STATUS'] = '0'
+        for _ in range(3):
+            subprocess.run(welcome, env=self.environment, check=True)
+        self.assertTrue(marker.exists())
+        recorded = events.read_text()
+        self.assertEqual(recorded.count('Learn Keybindings'), 2)
+        self.assertIn('-u normal -t 15000', recorded)
+        self.assertIn('--exec nier-menu-keybindings', recorded)
+
+    def test_completed_install_does_not_repeat_keybindings_invitation(self):
+        self.environment['PATH'] += ':/usr/bin:/bin'
+        self.environment['HOME'] = str(self.directory)
+        (self.directory / 'nier-done').symlink_to(ROOT / 'share/bin/nier-done')
+        marker = self.directory / '.local/state/nier/done/first-run-user'
+        marker.parent.mkdir(parents=True)
+        marker.touch()
+        # No notification sender is provided: completed installs must skip it.
+        result = subprocess.run([
+            '/bin/bash', str(ROOT / 'share/install/user/first-run/welcome.sh'),
+        ], env=self.environment, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_first_run_update_notification_requires_available_updates(self):
         self.executable('nm-online', 'exit 0\n')
         self.executable('nier-update-available', 'exit "$UPDATE_STATUS"\n')
